@@ -9,7 +9,8 @@
    Satu aksen "pijar" untuk panas; biru baja untuk spesimen & panas keluar. */
 :root{
   --bg:#eef1f3; --surface:#ffffff; --surface-2:#f6f8f9; --line:#d5dbe0; --fg:#18232c; --muted:#5b6974;
-  --accent:#d9480f; --accent-soft:#fbe4d8; --steel:#2f6f9f; --tray:#a35a12; --atm:#6b7782; --ok:#2b8a3e; --warn:#a86a12; --crit:#c92a2a;
+  --accent:#c2410c; --on-accent:#ffffff; --accent-soft:#fbe4d8; --steel:#2f6f9f; --tray:#a35a12; --atm:#6b7782; --ok:#237032; --warn:#8a5a0a; --crit:#b42318;
+  --tag-pdf:#1f5a85; --tag-asm:#7a4f08; --tag-lit:#1f6a2d; --tag-need:#a61e1e;
   --f-display:"Archivo", "Segoe UI", system-ui, sans-serif;
   --f-body:"IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
   --f-mono:"IBM Plex Mono", ui-monospace, Consolas, monospace;
@@ -17,10 +18,12 @@
 }
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
   --bg:#111820; --surface:#18212a; --surface-2:#1d2732; --line:#2c3a46; --fg:#e4eaef; --muted:#93a3b0;
-  --accent:#ff7a3d; --accent-soft:#3a2418; --steel:#6cb2e6; --tray:#e0a25c; --atm:#9aa7b3; --ok:#69db7c; --warn:#f2c14e; --crit:#ff8787; color-scheme:dark }}
+  --accent:#ff7a3d; --on-accent:#1b0d04; --accent-soft:#3a2418; --steel:#6cb2e6; --tray:#e0a25c; --atm:#9aa7b3; --ok:#69db7c; --warn:#f2c14e; --crit:#ff8787;
+  --tag-pdf:#8cc4ee; --tag-asm:#f2c14e; --tag-lit:#69db7c; --tag-need:#ff9b9b; color-scheme:dark }}
 :root[data-theme="dark"]{
   --bg:#111820; --surface:#18212a; --surface-2:#1d2732; --line:#2c3a46; --fg:#e4eaef; --muted:#93a3b0;
-  --accent:#ff7a3d; --accent-soft:#3a2418; --steel:#6cb2e6; --tray:#e0a25c; --atm:#9aa7b3; --ok:#69db7c; --warn:#f2c14e; --crit:#ff8787; color-scheme:dark }
+  --accent:#ff7a3d; --on-accent:#1b0d04; --accent-soft:#3a2418; --steel:#6cb2e6; --tray:#e0a25c; --atm:#9aa7b3; --ok:#69db7c; --warn:#f2c14e; --crit:#ff8787;
+  --tag-pdf:#8cc4ee; --tag-asm:#f2c14e; --tag-lit:#69db7c; --tag-need:#ff9b9b; color-scheme:dark }
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 ::selection{background:var(--accent-soft);color:var(--fg)}
@@ -40,10 +43,16 @@ h3{font-family:var(--f-body);font-weight:600;font-size:13px;margin:0;color:var(-
 /* ---------- panel parameter ---------- */
 /* Panel tanpa scroll sendiri: hanya halaman yang di-scroll. Bilah Jalankan menempel saat halaman di-scroll. */
 aside.params{background:var(--surface);border:1px solid var(--line);border-radius:6px;min-width:0}
-.run-bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:3;background:var(--surface);padding:14px;border-bottom:1px solid var(--line);border-radius:6px 6px 0 0;display:flex;flex-direction:column;gap:10px}
+.run-bar{padding:14px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:10px}
 .run-foot{padding:14px;display:grid}
-.auto-height .run-bar{position:relative}
-.run-bar.floating{border:1px solid var(--line);border-radius:6px;box-shadow:0 8px 20px rgb(0 0 0 / .18)}
+/* Bilah ringkas: muncul di puncak panel hanya setelah bilah Jalankan utama ter-scroll lewat */
+.run-mini-wrap{position:sticky;top:env(safe-area-inset-top,0px);height:0;z-index:4}
+.auto-height .run-mini-wrap{position:relative}
+.run-mini{position:absolute;left:-1px;right:-1px;top:0;display:flex;align-items:center;gap:10px;padding:8px 10px 8px 14px;background:var(--surface);border:1px solid var(--line);border-radius:6px;box-shadow:0 6px 18px rgb(0 0 0 / .16)}
+.mini-status{flex:1;min-width:0;font-size:12.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mini-status.stale{color:var(--accent)}
+.mini-status.err{color:var(--crit)}
+.run-mini .btn{flex:none}
 .seg{position:relative;display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:5px;overflow:hidden}
 .seg input{position:absolute;opacity:0;pointer-events:none}
 .seg label{text-align:center;padding:7px 8px;font-weight:600;font-size:13px;cursor:pointer;color:var(--muted);background:var(--surface-2)}
@@ -55,7 +64,7 @@ aside.params{background:var(--surface);border:1px solid var(--line);border-radiu
 .btn:hover{border-color:var(--muted)}
 .btn:disabled{opacity:.55;cursor:not-allowed}
 .btn:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible,.linkbtn:focus-visible,[role=tab]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-size:15px;padding:10px 12px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent);font-size:15px;padding:10px 12px}
 .btn.primary:hover{filter:brightness(1.07)}
 .btn.primary:disabled{cursor:wait}
 .btn.primary.stale{box-shadow:0 0 0 3px var(--accent-soft)}
@@ -76,14 +85,15 @@ details.grp[open]>summary .sum{display:none}
 .fields{padding:0 14px 16px;display:grid;gap:12px;min-width:0}
 .f{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,148px);gap:3px 10px;align-items:center;min-width:0}
 .f>label{font-size:13px;min-width:0;overflow-wrap:anywhere}
+.f.wide{grid-template-columns:minmax(0,1fr)}
 .f .note-line{grid-column:1/-1;font-size:11.5px;color:var(--muted);line-height:1.35}
 .f .err{grid-column:1/-1;font-size:12px;color:var(--crit)}
 .f.invalid input{border-color:var(--crit)}
 .tag{display:inline-block;font-family:var(--f-mono);font-size:10.5px;line-height:1.5;padding:0 5px;border-radius:3px;margin-left:4px;vertical-align:1px;letter-spacing:.02em;white-space:nowrap}
-.tag.pdf{background:color-mix(in srgb,var(--steel) 18%,transparent);color:var(--steel)}
-.tag.asm{background:color-mix(in srgb,var(--warn) 22%,transparent);color:var(--warn)}
-.tag.lit{background:color-mix(in srgb,var(--ok) 18%,transparent);color:var(--ok)}
-.tag.need{background:color-mix(in srgb,var(--crit) 16%,transparent);color:var(--crit)}
+.tag.pdf{background:color-mix(in srgb,var(--steel) 14%,transparent);color:var(--tag-pdf)}
+.tag.asm{background:color-mix(in srgb,var(--warn) 14%,transparent);color:var(--tag-asm)}
+.tag.lit{background:color-mix(in srgb,var(--ok) 14%,transparent);color:var(--tag-lit)}
+.tag.need{background:color-mix(in srgb,var(--crit) 12%,transparent);color:var(--tag-need)}
 body[data-mode="manual"] .pdf-only{display:none!important}
 .inp{display:flex;align-items:center;gap:4px;min-width:0}
 .inp input,.inp select{width:100%;min-width:0;font-family:var(--f-mono);font-size:13px;padding:6px 6px;border:1px solid var(--line);border-radius:4px;background:var(--surface-2);color:var(--fg)}
@@ -166,6 +176,10 @@ td.num{font-family:var(--f-mono)}
 
 <div class="grid">
 <aside class="params" aria-label="Parameter simulasi">
+  <div class="run-mini-wrap"><div class="run-mini" id="runMini" hidden>
+    <span class="mini-status" id="statusMini" aria-hidden="true"></span>
+    <button class="btn primary sm" id="btnRun3" type="button">Jalankan</button>
+  </div></div>
   <div class="run-bar">
     <div class="seg" role="radiogroup" aria-label="Sumber parameter">
       <input type="radio" name="mode" id="mode_pdf" value="pdf" checked><label for="mode_pdf">Preset PDF</label>
@@ -930,7 +944,7 @@ const GROUPS = [
   ], sum:(v)=>`${fmt(v.tray_Lx,0)}×${fmt(v.tray_Ly,0)}×${fmt(v.tray_Lz,0)} mm` },
 
   { id:'g_furn', title:'Tungku & atmosfer', items:[
-    { type:'multi', ids:['f_W','f_H','f_D'], label:'Ruang muffle L × T × P', unit:'mm', step:5, min:20, pdf:[175,100,300], tag:'pdf' },
+    { type:'multi', ids:['f_W','f_H','f_D'], label:'Ruang muffle lebar × tinggi × panjang', unit:'mm', step:5, min:20, pdf:[175,100,300], tag:'pdf', wide:true },
     { id:'f_epsWall', label:'Emisivitas dinding', step:0.01, min:0.05, max:1, pdf:0.85, tag:'asm' },
     { id:'f_dTwall', label:'Selisih T dinding − T termokopel', unit:'°C', step:1, pdf:0, tag:'need', tagText:'DATA #2', hint:'Positif bila dinding lebih panas daripada yang dibaca termokopel.' },
     { id:'g_flow', label:'Debit gas', unit:'L/min', step:0.5, min:0, pdf:2, tag:'need', tagText:'DATA #3' },
@@ -995,7 +1009,7 @@ function buildParams(){
       else if (it.ids) ctrl = it.ids.map((id,k) => numInput(id, it, k ? `${it.label} (${k+1})` : null)).join('');
       else ctrl = numInput(it.id, it);
       const unit = it.unit ? `<em>${it.unit}</em>` : '';
-      return `<div class="f ${cls}" data-item="${it.ids ? it.ids[0] : it.id}"><label for="${it.ids ? it.ids[0] : it.id}">${it.label}${tagHtml(it)}</label><div class="inp">${ctrl}${unit}</div>${notes}</div>`;
+      return `<div class="f ${it.wide ? 'wide ' : ''}${cls}" data-item="${it.ids ? it.ids[0] : it.id}"><label for="${it.ids ? it.ids[0] : it.id}">${it.label}${tagHtml(it)}</label><div class="inp">${ctrl}${unit}</div>${notes}</div>`;
     }).join('');
     return `<details class="grp" id="${g.id}"${g.open ? ' open' : ''}><summary><span>${g.title}</span><span class="sum" data-sum="${g.id}"></span></summary><div class="fields">${rows}</div></details>`;
   }).join('');
@@ -1150,9 +1164,12 @@ function runSimMain(P, onProg){
     tick();
   });
 }
-function setStatus(t, cls){ const s = $('status'); s.textContent = t; s.className = 'status' + (cls ? ' '+cls : ''); }
+function setStatus(t, cls){
+  const s = $('status'); s.textContent = t; s.className = 'status' + (cls ? ' '+cls : '');
+  const m = $('statusMini'); m.textContent = t; m.className = 'mini-status' + (cls ? ' '+cls : '');
+}
 function setStale(on){
-  $('btnRun').classList.toggle('stale', on); $('btnRun2').classList.toggle('stale', on);
+  for (const id of ['btnRun','btnRun2','btnRun3']) $(id).classList.toggle('stale', on);
   if (on && !running) setStatus('Parameter diubah. Tekan Jalankan simulasi atau Enter untuk memperbarui hasil.', 'stale');
 }
 
@@ -1175,6 +1192,7 @@ async function doRun(){
 }
 function setRunBusy(busy){
   for (const id of ['btnRun','btnRun2']){ const b = $(id); b.disabled = busy; b.textContent = busy ? 'Menghitung…' : 'Jalankan simulasi'; }
+  const b3 = $('btnRun3'); b3.disabled = busy; b3.textContent = busy ? 'Menghitung…' : 'Jalankan';
 }
 
 async function doBand(){
@@ -1445,22 +1463,33 @@ function setupEmbedding(){
   };
   if (typeof ResizeObserver !== 'undefined') new ResizeObserver(fit).observe(wrap);
   window.addEventListener('load', fit); fit();
-  // Bilah Jalankan tetap terlihat: geser mengikuti scroll halaman induk
-  try {
-    const pw = hostFrame.ownerDocument.defaultView, bar = document.querySelector('.run-bar'), aside = document.querySelector('aside.params');
-    const follow = () => {
-      if (matchMedia('(max-width:1000px)').matches){ bar.style.transform = ''; return; }
-      const top = hostFrame.getBoundingClientRect().top;            // posisi iframe di layar induk
-      const aTop = aside.getBoundingClientRect().top, aH = aside.offsetHeight, bH = bar.offsetHeight;
-      const shift = Math.max(0, Math.min(-top - aTop + 8, aH - bH));
-      bar.style.transform = shift > 0 ? `translateY(${shift}px)` : '';
-      bar.classList.toggle('floating', shift > 0);
-    };
-    pw.addEventListener('scroll', follow, {passive:true}, true);
-    pw.document.addEventListener('scroll', follow, {passive:true, capture:true});
-    window.addEventListener('resize', follow);
-  } catch(e){}
   syncHostBackground();
+}
+
+// ---------- Bilah ringkas "Jalankan" ----------
+// Muncul di puncak panel parameter setelah bilah utama ter-scroll keluar layar.
+// Halaman biasa: posisi sticky CSS. Di Streamlit (iframe tanpa scroll sendiri): digeser mengikuti scroll halaman induk.
+function setupMiniBar(){
+  const mini = $('runMini'), bar = document.querySelector('.run-bar'), aside = document.querySelector('aside.params');
+  let frameTop = () => 0, visTop = () => 0;
+  if (hostFrame){
+    const pd = hostFrame.ownerDocument;
+    frameTop = () => hostFrame.getBoundingClientRect().top;
+    visTop = () => { const h = pd.querySelector('[data-testid="stHeader"]'); if (!h) return 0; const r = h.getBoundingClientRect(); return (getComputedStyle(h).display === 'none' || r.height < 2) ? 0 : Math.max(0, r.bottom); };
+  }
+  const update = () => {
+    const ft = frameTop(), top = visTop() - ft;                       // batas atas layar dalam koordinat halaman ini
+    const barBottom = bar.getBoundingClientRect().bottom, a = aside.getBoundingClientRect();
+    const show = barBottom < top + 2 && a.bottom > top + 70;
+    mini.hidden = !show;
+    if (hostFrame) mini.style.transform = show ? `translateY(${Math.max(0, Math.min(top - a.top, a.height - mini.offsetHeight))}px)` : '';
+  };
+  window.addEventListener('scroll', update, {passive:true});
+  window.addEventListener('resize', update);
+  if (hostFrame){
+    try { hostFrame.ownerDocument.addEventListener('scroll', update, {passive:true, capture:true}); hostFrame.ownerDocument.defaultView.addEventListener('resize', update); } catch(e){}
+  }
+  update();
 }
 // Samakan latar halaman Streamlit di sekitar iframe dengan tema simulator
 function syncHostBackground(){
@@ -1491,7 +1520,8 @@ function init(){
   };
   aside.addEventListener('input', onEdit); aside.addEventListener('change', onEdit);
   aside.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.matches('#paramHost input:not([type=checkbox]):not([type=radio]):not([type=file]), #paramHost select')) { e.preventDefault(); doRun(); } });
-  $('btnRun').onclick = doRun; $('btnRun2').onclick = doRun;
+  $('btnRun').onclick = doRun; $('btnRun2').onclick = doRun; $('btnRun3').onclick = doRun;
+  setupMiniBar();
   $('btnBand').onclick = doBand;
   $('btnPin').onclick = () => { if (!sim) return; pinned = {rec:sim.rec, label:sim.P.meta.label}; $('btnUnpin').hidden = false; setStatus(`Pembanding disimpan (${pinned.label}). Ubah parameter lalu jalankan lagi.`); renderCharts(); };
   $('btnUnpin').onclick = () => { pinned = null; $('btnUnpin').hidden = true; if (sim) renderCharts(); setStatus('Pembanding dihapus.'); };

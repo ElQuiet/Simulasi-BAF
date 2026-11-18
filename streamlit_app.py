@@ -27,8 +27,9 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-      .block-container {padding: 2.75rem 0.5rem 1rem 0.5rem; max-width: 100%;}
-      header[data-testid="stHeader"] {background: transparent;}
+      .block-container {padding: 0.5rem 0.5rem 1rem 0.5rem; max-width: 100%;}
+      /* toolbar Streamlit disembunyikan agar tidak menutupi bagian atas simulator saat scroll */
+      header[data-testid="stHeader"], [data-testid="stToolbar"], [data-testid="stDecoration"] {display: none;}
       #MainMenu, footer {visibility: hidden;}
       iframe {border: 0; display: block;}
       [data-testid="stElementContainer"]:has(iframe) {margin: 0;}

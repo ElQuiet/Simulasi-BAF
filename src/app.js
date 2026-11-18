@@ -45,7 +45,7 @@ const GROUPS = [
   ], sum:(v)=>`${fmt(v.tray_Lx,0)}×${fmt(v.tray_Ly,0)}×${fmt(v.tray_Lz,0)} mm` },
 
   { id:'g_furn', title:'Tungku & atmosfer', items:[
-    { type:'multi', ids:['f_W','f_H','f_D'], label:'Ruang muffle L × T × P', unit:'mm', step:5, min:20, pdf:[175,100,300], tag:'pdf' },
+    { type:'multi', ids:['f_W','f_H','f_D'], label:'Ruang muffle lebar × tinggi × panjang', unit:'mm', step:5, min:20, pdf:[175,100,300], tag:'pdf', wide:true },
     { id:'f_epsWall', label:'Emisivitas dinding', step:0.01, min:0.05, max:1, pdf:0.85, tag:'asm' },
     { id:'f_dTwall', label:'Selisih T dinding − T termokopel', unit:'°C', step:1, pdf:0, tag:'need', tagText:'DATA #2', hint:'Positif bila dinding lebih panas daripada yang dibaca termokopel.' },
     { id:'g_flow', label:'Debit gas', unit:'L/min', step:0.5, min:0, pdf:2, tag:'need', tagText:'DATA #3' },
@@ -110,7 +110,7 @@ function buildParams(){
       else if (it.ids) ctrl = it.ids.map((id,k) => numInput(id, it, k ? `${it.label} (${k+1})` : null)).join('');
       else ctrl = numInput(it.id, it);
       const unit = it.unit ? `<em>${it.unit}</em>` : '';
-      return `<div class="f ${cls}" data-item="${it.ids ? it.ids[0] : it.id}"><label for="${it.ids ? it.ids[0] : it.id}">${it.label}${tagHtml(it)}</label><div class="inp">${ctrl}${unit}</div>${notes}</div>`;
+      return `<div class="f ${it.wide ? 'wide ' : ''}${cls}" data-item="${it.ids ? it.ids[0] : it.id}"><label for="${it.ids ? it.ids[0] : it.id}">${it.label}${tagHtml(it)}</label><div class="inp">${ctrl}${unit}</div>${notes}</div>`;
     }).join('');
     return `<details class="grp" id="${g.id}"${g.open ? ' open' : ''}><summary><span>${g.title}</span><span class="sum" data-sum="${g.id}"></span></summary><div class="fields">${rows}</div></details>`;
   }).join('');
@@ -265,9 +265,12 @@ function runSimMain(P, onProg){
     tick();
   });
 }
-function setStatus(t, cls){ const s = $('status'); s.textContent = t; s.className = 'status' + (cls ? ' '+cls : ''); }
+function setStatus(t, cls){
+  const s = $('status'); s.textContent = t; s.className = 'status' + (cls ? ' '+cls : '');
+  const m = $('statusMini'); m.textContent = t; m.className = 'mini-status' + (cls ? ' '+cls : '');
+}
 function setStale(on){
-  $('btnRun').classList.toggle('stale', on); $('btnRun2').classList.toggle('stale', on);
+  for (const id of ['btnRun','btnRun2','btnRun3']) $(id).classList.toggle('stale', on);
   if (on && !running) setStatus('Parameter diubah. Tekan Jalankan simulasi atau Enter untuk memperbarui hasil.', 'stale');
 }
 
@@ -290,6 +293,7 @@ async function doRun(){
 }
 function setRunBusy(busy){
   for (const id of ['btnRun','btnRun2']){ const b = $(id); b.disabled = busy; b.textContent = busy ? 'Menghitung…' : 'Jalankan simulasi'; }
+  const b3 = $('btnRun3'); b3.disabled = busy; b3.textContent = busy ? 'Menghitung…' : 'Jalankan';
 }
 
 async function doBand(){
@@ -560,22 +564,33 @@ function setupEmbedding(){
   };
   if (typeof ResizeObserver !== 'undefined') new ResizeObserver(fit).observe(wrap);
   window.addEventListener('load', fit); fit();
-  // Bilah Jalankan tetap terlihat: geser mengikuti scroll halaman induk
-  try {
-    const pw = hostFrame.ownerDocument.defaultView, bar = document.querySelector('.run-bar'), aside = document.querySelector('aside.params');
-    const follow = () => {
-      if (matchMedia('(max-width:1000px)').matches){ bar.style.transform = ''; return; }
-      const top = hostFrame.getBoundingClientRect().top;            // posisi iframe di layar induk
-      const aTop = aside.getBoundingClientRect().top, aH = aside.offsetHeight, bH = bar.offsetHeight;
-      const shift = Math.max(0, Math.min(-top - aTop + 8, aH - bH));
-      bar.style.transform = shift > 0 ? `translateY(${shift}px)` : '';
-      bar.classList.toggle('floating', shift > 0);
-    };
-    pw.addEventListener('scroll', follow, {passive:true}, true);
-    pw.document.addEventListener('scroll', follow, {passive:true, capture:true});
-    window.addEventListener('resize', follow);
-  } catch(e){}
   syncHostBackground();
+}
+
+// ---------- Bilah ringkas "Jalankan" ----------
+// Muncul di puncak panel parameter setelah bilah utama ter-scroll keluar layar.
+// Halaman biasa: posisi sticky CSS. Di Streamlit (iframe tanpa scroll sendiri): digeser mengikuti scroll halaman induk.
+function setupMiniBar(){
+  const mini = $('runMini'), bar = document.querySelector('.run-bar'), aside = document.querySelector('aside.params');
+  let frameTop = () => 0, visTop = () => 0;
+  if (hostFrame){
+    const pd = hostFrame.ownerDocument;
+    frameTop = () => hostFrame.getBoundingClientRect().top;
+    visTop = () => { const h = pd.querySelector('[data-testid="stHeader"]'); if (!h) return 0; const r = h.getBoundingClientRect(); return (getComputedStyle(h).display === 'none' || r.height < 2) ? 0 : Math.max(0, r.bottom); };
+  }
+  const update = () => {
+    const ft = frameTop(), top = visTop() - ft;                       // batas atas layar dalam koordinat halaman ini
+    const barBottom = bar.getBoundingClientRect().bottom, a = aside.getBoundingClientRect();
+    const show = barBottom < top + 2 && a.bottom > top + 70;
+    mini.hidden = !show;
+    if (hostFrame) mini.style.transform = show ? `translateY(${Math.max(0, Math.min(top - a.top, a.height - mini.offsetHeight))}px)` : '';
+  };
+  window.addEventListener('scroll', update, {passive:true});
+  window.addEventListener('resize', update);
+  if (hostFrame){
+    try { hostFrame.ownerDocument.addEventListener('scroll', update, {passive:true, capture:true}); hostFrame.ownerDocument.defaultView.addEventListener('resize', update); } catch(e){}
+  }
+  update();
 }
 // Samakan latar halaman Streamlit di sekitar iframe dengan tema simulator
 function syncHostBackground(){
@@ -606,7 +621,8 @@ function init(){
   };
   aside.addEventListener('input', onEdit); aside.addEventListener('change', onEdit);
   aside.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.matches('#paramHost input:not([type=checkbox]):not([type=radio]):not([type=file]), #paramHost select')) { e.preventDefault(); doRun(); } });
-  $('btnRun').onclick = doRun; $('btnRun2').onclick = doRun;
+  $('btnRun').onclick = doRun; $('btnRun2').onclick = doRun; $('btnRun3').onclick = doRun;
+  setupMiniBar();
   $('btnBand').onclick = doBand;
   $('btnPin').onclick = () => { if (!sim) return; pinned = {rec:sim.rec, label:sim.P.meta.label}; $('btnUnpin').hidden = false; setStatus(`Pembanding disimpan (${pinned.label}). Ubah parameter lalu jalankan lagi.`); renderCharts(); };
   $('btnUnpin').onclick = () => { pinned = null; $('btnUnpin').hidden = true; if (sim) renderCharts(); setStatus('Pembanding dihapus.'); };
