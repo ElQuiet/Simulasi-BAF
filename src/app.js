@@ -267,7 +267,7 @@ function runSimMain(P, onProg){
 }
 function setStatus(t, cls){ const s = $('status'); s.textContent = t; s.className = 'status' + (cls ? ' '+cls : ''); }
 function setStale(on){
-  $('btnRun').classList.toggle('stale', on);
+  $('btnRun').classList.toggle('stale', on); $('btnRun2').classList.toggle('stale', on);
   if (on && !running) setStatus('Parameter diubah. Tekan Jalankan simulasi atau Enter untuk memperbarui hasil.', 'stale');
 }
 
@@ -276,8 +276,7 @@ async function doRun(){
   const v = getValues();
   if (showErrors(validate(v))){ setStatus('Periksa kolom yang ditandai merah.', 'err'); return; }
   if (v.tsrc === 'csv' && !csvData){ $('g_prog').open = true; setStatus('Tempel log CSV lalu tekan "Pakai log ini", atau pilih Program ramp.', 'err'); return; }
-  running = true; $('btnRun').disabled = true; band = null; setStale(false);
-  $('btnRun').textContent = 'Menghitung…';
+  running = true; band = null; setStale(false); setRunBusy(true);
   const t0 = performance.now();
   try {
     const P = buildParamsObject(v);
@@ -287,7 +286,10 @@ async function doRun(){
     store.set(mode === 'manual' ? 'manual' : 'pdfEdits', v);
     render();
   } catch(e){ console.error(e); setStatus('Simulasi gagal: '+e.message, 'err'); }
-  running = false; $('btnRun').disabled = false; $('btnRun').textContent = 'Jalankan simulasi';
+  running = false; setRunBusy(false);
+}
+function setRunBusy(busy){
+  for (const id of ['btnRun','btnRun2']){ const b = $(id); b.disabled = busy; b.textContent = busy ? 'Menghitung…' : 'Jalankan simulasi'; }
 }
 
 async function doBand(){
@@ -534,8 +536,62 @@ function showTab(id, focus){
   store.set('tab', id);
 }
 
+// ---------- Tema ----------
+function applyTheme(t){
+  const root = document.documentElement;
+  if (t === 'light' || t === 'dark') root.setAttribute('data-theme', t); else root.removeAttribute('data-theme');
+  const r = document.querySelector(`input[name=theme][value=${t === 'light' || t === 'dark' ? t : 'system'}]`); if (r) r.checked = true;
+  store.set('theme', t);
+  syncHostBackground();
+}
+
+// ---------- Tertanam di Streamlit: satu scroll saja ----------
+// Bila halaman berada di iframe dengan asal yang sama (components.html di Streamlit),
+// tinggi iframe disesuaikan dengan isi sehingga hanya halaman induk yang di-scroll.
+let hostFrame = null;
+function setupEmbedding(){
+  try { hostFrame = window.frameElement; } catch(e){ hostFrame = null; }   // penampil lain (lintas asal) → tidak disentuh
+  if (!hostFrame) return;
+  document.body.classList.add('auto-height');
+  const wrap = document.querySelector('.wrap');
+  const fit = () => {
+    const h = Math.ceil(wrap.getBoundingClientRect().height) + 2;
+    if (Math.abs(hostFrame.offsetHeight - h) > 2){ hostFrame.style.height = h + 'px'; hostFrame.setAttribute('height', h); }
+  };
+  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(fit).observe(wrap);
+  window.addEventListener('load', fit); fit();
+  // Bilah Jalankan tetap terlihat: geser mengikuti scroll halaman induk
+  try {
+    const pw = hostFrame.ownerDocument.defaultView, bar = document.querySelector('.run-bar'), aside = document.querySelector('aside.params');
+    const follow = () => {
+      if (matchMedia('(max-width:1000px)').matches){ bar.style.transform = ''; return; }
+      const top = hostFrame.getBoundingClientRect().top;            // posisi iframe di layar induk
+      const aTop = aside.getBoundingClientRect().top, aH = aside.offsetHeight, bH = bar.offsetHeight;
+      const shift = Math.max(0, Math.min(-top - aTop + 8, aH - bH));
+      bar.style.transform = shift > 0 ? `translateY(${shift}px)` : '';
+      bar.classList.toggle('floating', shift > 0);
+    };
+    pw.addEventListener('scroll', follow, {passive:true}, true);
+    pw.document.addEventListener('scroll', follow, {passive:true, capture:true});
+    window.addEventListener('resize', follow);
+  } catch(e){}
+  syncHostBackground();
+}
+// Samakan latar halaman Streamlit di sekitar iframe dengan tema simulator
+function syncHostBackground(){
+  if (!hostFrame) return;
+  try {
+    const d = hostFrame.ownerDocument, bg = css('--bg');
+    for (const sel of ['.stApp', '[data-testid="stAppViewContainer"]', '[data-testid="stHeader"]']) d.querySelectorAll(sel).forEach(e => e.style.background = bg);
+  } catch(e){}
+}
+
 // ---------- Inisialisasi ----------
 function init(){
+  if (typeof Chart !== 'undefined'){ Chart.defaults.font.family = "'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif"; Chart.defaults.font.size = 12; }
+  applyTheme(store.get('theme') || 'system');
+  document.querySelectorAll('input[name=theme]').forEach(r => r.onchange = () => applyTheme(r.value));
+  setupEmbedding();
   buildParams();
   const savedMode = store.get('mode') === 'manual' ? 'manual' : 'pdf';
   setValues(PDF_VALUES);
@@ -550,7 +606,7 @@ function init(){
   };
   aside.addEventListener('input', onEdit); aside.addEventListener('change', onEdit);
   aside.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.matches('#paramHost input:not([type=checkbox]):not([type=radio]):not([type=file]), #paramHost select')) { e.preventDefault(); doRun(); } });
-  $('btnRun').onclick = doRun;
+  $('btnRun').onclick = doRun; $('btnRun2').onclick = doRun;
   $('btnBand').onclick = doBand;
   $('btnPin').onclick = () => { if (!sim) return; pinned = {rec:sim.rec, label:sim.P.meta.label}; $('btnUnpin').hidden = false; setStatus(`Pembanding disimpan (${pinned.label}). Ubah parameter lalu jalankan lagi.`); renderCharts(); };
   $('btnUnpin').onclick = () => { pinned = null; $('btnUnpin').hidden = true; if (sim) renderCharts(); setStatus('Pembanding dihapus.'); };
@@ -600,7 +656,9 @@ function init(){
     const a = Object.assign(document.createElement('a'), {href:url, download:'hasil-simulasi-baf.csv'});
     document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
   };
-  const rerender = () => { V3.builtKey = null; drawLegendOn($('cvLeg')); drawLegendOn($('cvLeg3')); if (sim){ renderCharts(); updateSnapViews(); } };
+  const rerender = () => { V3.builtKey = null; syncHostBackground(); drawLegendOn($('cvLeg')); drawLegendOn($('cvLeg3')); if (sim){ renderCharts(); updateSnapViews(); } };
+  // gambar ulang grafik setelah font web termuat, agar legenda tidak memakai font cadangan
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (sim) renderCharts(); });
   const mq = matchMedia('(prefers-color-scheme: dark)'); mq.addEventListener && mq.addEventListener('change', rerender);
   new MutationObserver(rerender).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
   document.addEventListener('visibilitychange', flowLoop);

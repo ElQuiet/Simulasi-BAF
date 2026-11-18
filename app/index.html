@@ -29,19 +29,25 @@
 ::selection{background:var(--accent-soft);color:var(--fg)}
 body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:14px;line-height:1.5;margin:0}
 .wrap{max-width:1560px;margin:0 auto;padding-block:18px 40px;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
-header.top{display:flex;flex-wrap:wrap;gap:6px 24px;align-items:baseline;justify-content:space-between;border-bottom:2px solid var(--fg);padding-bottom:12px;margin-bottom:16px}
+header.top{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-end;justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:14px;margin-bottom:16px}
+header.top .title{display:flex;flex-direction:column;gap:4px;min-width:0}
 h1{font-family:var(--f-display);font-weight:800;font-size:clamp(22px,2.6vw,30px);letter-spacing:-.01em;margin:0;text-wrap:balance}
 header.top p{margin:0;color:var(--muted);max-width:70ch}
+.seg.theme-seg{grid-template-columns:repeat(3,auto);flex:none}
+.seg.theme-seg label{padding:5px 14px}
 h2{font-family:var(--f-display);font-weight:700;font-size:17px;margin:0;text-wrap:balance}
 h3{font-family:var(--f-body);font-weight:600;font-size:13px;margin:0;color:var(--muted)}
 .grid{display:grid;grid-template-columns:360px minmax(0,1fr);gap:18px;align-items:start}
 @media (max-width:1000px){.grid{grid-template-columns:minmax(0,1fr)}}
 
 /* ---------- panel parameter ---------- */
-aside.params{background:var(--surface);border:1px solid var(--line);border-radius:6px;position:sticky;top:env(safe-area-inset-top,0px);max-height:calc(100vh - 20px);overflow-y:auto;overflow-x:hidden;min-width:0}
-@media (max-width:1000px){aside.params{position:static;max-height:none}}
-.run-bar{position:sticky;top:0;z-index:3;background:var(--surface);padding:14px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:10px}
-.seg{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:5px;overflow:hidden}
+/* Panel tanpa scroll sendiri: hanya halaman yang di-scroll. Bilah Jalankan menempel saat halaman di-scroll. */
+aside.params{background:var(--surface);border:1px solid var(--line);border-radius:6px;min-width:0}
+.run-bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:3;background:var(--surface);padding:14px;border-bottom:1px solid var(--line);border-radius:6px 6px 0 0;display:flex;flex-direction:column;gap:10px}
+.run-foot{padding:14px;display:grid}
+.auto-height .run-bar{position:relative}
+.run-bar.floating{border:1px solid var(--line);border-radius:6px;box-shadow:0 8px 20px rgb(0 0 0 / .18)}
+.seg{position:relative;display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:5px;overflow:hidden}
 .seg input{position:absolute;opacity:0;pointer-events:none}
 .seg label{text-align:center;padding:7px 8px;font-weight:600;font-size:13px;cursor:pointer;color:var(--muted);background:var(--surface-2)}
 .seg input:checked+label{background:var(--fg);color:var(--surface)}
@@ -105,7 +111,8 @@ main{display:flex;flex-direction:column;gap:14px;min-width:0}
 .kpi.hl .v{color:var(--accent)}
 .pill{display:inline-block;font-size:11.5px;padding:0 7px;border-radius:10px;border:1px solid currentColor;margin-right:4px}
 .pill.ok{color:var(--ok)} .pill.warn{color:var(--warn)} .pill.crit{color:var(--crit)}
-.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:thin}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);overflow-x:auto;overflow-y:hidden;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
 .tabs [role=tab]{background:none;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;padding:9px 14px;font:600 14px var(--f-body);color:var(--muted);cursor:pointer;white-space:nowrap}
 .tabs [role=tab]:hover{color:var(--fg)}
 .tabs [role=tab][aria-selected=true]{color:var(--fg);border-bottom-color:var(--accent)}
@@ -151,8 +158,15 @@ td.num{font-family:var(--f-mono)}
 <body>
 <div class="wrap">
 <header class="top">
-  <h1>Simulator Termal BAF</h1>
-  <p>Prediksi suhu spesimen dan tatakan di dalam muffle dari program suhu tungku, dengan model konduksi 3D transien.</p>
+  <div class="title">
+    <h1>Simulator Termal BAF</h1>
+    <p>Prediksi suhu spesimen dan tatakan di dalam muffle dari program suhu tungku, dengan model konduksi 3D transien.</p>
+  </div>
+  <div class="seg theme-seg" role="radiogroup" aria-label="Tema tampilan">
+    <input type="radio" name="theme" id="th_light" value="light"><label for="th_light">Terang</label>
+    <input type="radio" name="theme" id="th_dark" value="dark"><label for="th_dark">Gelap</label>
+    <input type="radio" name="theme" id="th_sys" value="system" checked><label for="th_sys">Sistem</label>
+  </div>
 </header>
 
 <div class="grid">
@@ -168,6 +182,7 @@ td.num{font-family:var(--f-mono)}
     <div class="status" id="status" role="status" aria-live="polite">Siap.</div>
   </div>
   <div id="paramHost"></div>
+  <div class="run-foot"><button class="btn primary" id="btnRun2" type="button">Jalankan simulasi</button></div>
 </aside>
 
 <main>
@@ -1142,7 +1157,7 @@ function runSimMain(P, onProg){
 }
 function setStatus(t, cls){ const s = $('status'); s.textContent = t; s.className = 'status' + (cls ? ' '+cls : ''); }
 function setStale(on){
-  $('btnRun').classList.toggle('stale', on);
+  $('btnRun').classList.toggle('stale', on); $('btnRun2').classList.toggle('stale', on);
   if (on && !running) setStatus('Parameter diubah. Tekan Jalankan simulasi atau Enter untuk memperbarui hasil.', 'stale');
 }
 
@@ -1151,8 +1166,7 @@ async function doRun(){
   const v = getValues();
   if (showErrors(validate(v))){ setStatus('Periksa kolom yang ditandai merah.', 'err'); return; }
   if (v.tsrc === 'csv' && !csvData){ $('g_prog').open = true; setStatus('Tempel log CSV lalu tekan "Pakai log ini", atau pilih Program ramp.', 'err'); return; }
-  running = true; $('btnRun').disabled = true; band = null; setStale(false);
-  $('btnRun').textContent = 'Menghitung…';
+  running = true; band = null; setStale(false); setRunBusy(true);
   const t0 = performance.now();
   try {
     const P = buildParamsObject(v);
@@ -1162,7 +1176,10 @@ async function doRun(){
     store.set(mode === 'manual' ? 'manual' : 'pdfEdits', v);
     render();
   } catch(e){ console.error(e); setStatus('Simulasi gagal: '+e.message, 'err'); }
-  running = false; $('btnRun').disabled = false; $('btnRun').textContent = 'Jalankan simulasi';
+  running = false; setRunBusy(false);
+}
+function setRunBusy(busy){
+  for (const id of ['btnRun','btnRun2']){ const b = $(id); b.disabled = busy; b.textContent = busy ? 'Menghitung…' : 'Jalankan simulasi'; }
 }
 
 async function doBand(){
@@ -1409,8 +1426,62 @@ function showTab(id, focus){
   store.set('tab', id);
 }
 
+// ---------- Tema ----------
+function applyTheme(t){
+  const root = document.documentElement;
+  if (t === 'light' || t === 'dark') root.setAttribute('data-theme', t); else root.removeAttribute('data-theme');
+  const r = document.querySelector(`input[name=theme][value=${t === 'light' || t === 'dark' ? t : 'system'}]`); if (r) r.checked = true;
+  store.set('theme', t);
+  syncHostBackground();
+}
+
+// ---------- Tertanam di Streamlit: satu scroll saja ----------
+// Bila halaman berada di iframe dengan asal yang sama (components.html di Streamlit),
+// tinggi iframe disesuaikan dengan isi sehingga hanya halaman induk yang di-scroll.
+let hostFrame = null;
+function setupEmbedding(){
+  try { hostFrame = window.frameElement; } catch(e){ hostFrame = null; }   // penampil lain (lintas asal) → tidak disentuh
+  if (!hostFrame) return;
+  document.body.classList.add('auto-height');
+  const wrap = document.querySelector('.wrap');
+  const fit = () => {
+    const h = Math.ceil(wrap.getBoundingClientRect().height) + 2;
+    if (Math.abs(hostFrame.offsetHeight - h) > 2){ hostFrame.style.height = h + 'px'; hostFrame.setAttribute('height', h); }
+  };
+  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(fit).observe(wrap);
+  window.addEventListener('load', fit); fit();
+  // Bilah Jalankan tetap terlihat: geser mengikuti scroll halaman induk
+  try {
+    const pw = hostFrame.ownerDocument.defaultView, bar = document.querySelector('.run-bar'), aside = document.querySelector('aside.params');
+    const follow = () => {
+      if (matchMedia('(max-width:1000px)').matches){ bar.style.transform = ''; return; }
+      const top = hostFrame.getBoundingClientRect().top;            // posisi iframe di layar induk
+      const aTop = aside.getBoundingClientRect().top, aH = aside.offsetHeight, bH = bar.offsetHeight;
+      const shift = Math.max(0, Math.min(-top - aTop + 8, aH - bH));
+      bar.style.transform = shift > 0 ? `translateY(${shift}px)` : '';
+      bar.classList.toggle('floating', shift > 0);
+    };
+    pw.addEventListener('scroll', follow, {passive:true}, true);
+    pw.document.addEventListener('scroll', follow, {passive:true, capture:true});
+    window.addEventListener('resize', follow);
+  } catch(e){}
+  syncHostBackground();
+}
+// Samakan latar halaman Streamlit di sekitar iframe dengan tema simulator
+function syncHostBackground(){
+  if (!hostFrame) return;
+  try {
+    const d = hostFrame.ownerDocument, bg = css('--bg');
+    for (const sel of ['.stApp', '[data-testid="stAppViewContainer"]', '[data-testid="stHeader"]']) d.querySelectorAll(sel).forEach(e => e.style.background = bg);
+  } catch(e){}
+}
+
 // ---------- Inisialisasi ----------
 function init(){
+  if (typeof Chart !== 'undefined'){ Chart.defaults.font.family = "'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif"; Chart.defaults.font.size = 12; }
+  applyTheme(store.get('theme') || 'system');
+  document.querySelectorAll('input[name=theme]').forEach(r => r.onchange = () => applyTheme(r.value));
+  setupEmbedding();
   buildParams();
   const savedMode = store.get('mode') === 'manual' ? 'manual' : 'pdf';
   setValues(PDF_VALUES);
@@ -1425,7 +1496,7 @@ function init(){
   };
   aside.addEventListener('input', onEdit); aside.addEventListener('change', onEdit);
   aside.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.matches('#paramHost input:not([type=checkbox]):not([type=radio]):not([type=file]), #paramHost select')) { e.preventDefault(); doRun(); } });
-  $('btnRun').onclick = doRun;
+  $('btnRun').onclick = doRun; $('btnRun2').onclick = doRun;
   $('btnBand').onclick = doBand;
   $('btnPin').onclick = () => { if (!sim) return; pinned = {rec:sim.rec, label:sim.P.meta.label}; $('btnUnpin').hidden = false; setStatus(`Pembanding disimpan (${pinned.label}). Ubah parameter lalu jalankan lagi.`); renderCharts(); };
   $('btnUnpin').onclick = () => { pinned = null; $('btnUnpin').hidden = true; if (sim) renderCharts(); setStatus('Pembanding dihapus.'); };
@@ -1475,7 +1546,9 @@ function init(){
     const a = Object.assign(document.createElement('a'), {href:url, download:'hasil-simulasi-baf.csv'});
     document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
   };
-  const rerender = () => { V3.builtKey = null; drawLegendOn($('cvLeg')); drawLegendOn($('cvLeg3')); if (sim){ renderCharts(); updateSnapViews(); } };
+  const rerender = () => { V3.builtKey = null; syncHostBackground(); drawLegendOn($('cvLeg')); drawLegendOn($('cvLeg3')); if (sim){ renderCharts(); updateSnapViews(); } };
+  // gambar ulang grafik setelah font web termuat, agar legenda tidak memakai font cadangan
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (sim) renderCharts(); });
   const mq = matchMedia('(prefers-color-scheme: dark)'); mq.addEventListener && mq.addEventListener('change', rerender);
   new MutationObserver(rerender).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
   document.addEventListener('visibilitychange', flowLoop);

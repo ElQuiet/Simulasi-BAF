@@ -1,8 +1,10 @@
 """Simulator Termal BAF – aplikasi Streamlit.
 
 Seluruh perhitungan (solver FVM 3D) dan tampilan berjalan di browser pengguna
-dari app/index.html, jadi server Streamlit hanya menyajikan halaman. Ini membuat
-aplikasi ringan dipakai banyak orang sekaligus di Streamlit Community Cloud.
+dari app/index.html, jadi server Streamlit hanya menyajikan halaman.
+
+Halaman di dalam iframe menyesuaikan tingginya sendiri dengan isinya, sehingga
+hanya ada satu scroll (milik halaman Streamlit), bukan scroll di dalam scroll.
 
 Jalankan lokal:  streamlit run streamlit_app.py
 """
@@ -21,14 +23,15 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# Rapatkan bingkai Streamlit agar simulator memakai seluruh lebar layar.
+# Bingkai Streamlit dibuat setipis mungkin; tinggi iframe diatur oleh halaman di dalamnya.
 st.markdown(
     """
     <style>
-      .block-container {padding: 0.5rem 0.75rem 0 0.75rem; max-width: 100%;}
-      header[data-testid="stHeader"] {height: 0; background: transparent;}
+      .block-container {padding: 2.75rem 0.5rem 1rem 0.5rem; max-width: 100%;}
+      header[data-testid="stHeader"] {background: transparent;}
       #MainMenu, footer {visibility: hidden;}
-      iframe {border: 0;}
+      iframe {border: 0; display: block;}
+      [data-testid="stElementContainer"]:has(iframe) {margin: 0;}
     </style>
     """,
     unsafe_allow_html=True,
@@ -45,10 +48,5 @@ if not PAGE.exists():
     st.error("Berkas app/index.html belum ada. Jalankan `python build.py` di folder proyek, lalu muat ulang halaman ini.")
     st.stop()
 
-with st.sidebar:
-    st.header("Tampilan")
-    height = st.slider("Tinggi area simulator (px)", 700, 2400, 1150, 50,
-                       help="Simulator punya gulungan sendiri; atur agar pas dengan layar Anda.")
-    st.caption("Perhitungan berjalan di browser Anda. Data yang dimasukkan tidak dikirim ke server.")
-
-components.html(load_page(PAGE.stat().st_mtime), height=height, scrolling=True)
+# Tinggi awal sebelum halaman mengukur dirinya sendiri; scrolling=False mencegah scroll ganda.
+components.html(load_page(PAGE.stat().st_mtime), height=1800, scrolling=False)

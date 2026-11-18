@@ -1,7 +1,14 @@
 <div class="wrap">
 <header class="top">
-  <h1>Simulator Termal BAF</h1>
-  <p>Prediksi suhu spesimen dan tatakan di dalam muffle dari program suhu tungku, dengan model konduksi 3D transien.</p>
+  <div class="title">
+    <h1>Simulator Termal BAF</h1>
+    <p>Prediksi suhu spesimen dan tatakan di dalam muffle dari program suhu tungku, dengan model konduksi 3D transien.</p>
+  </div>
+  <div class="seg theme-seg" role="radiogroup" aria-label="Tema tampilan">
+    <input type="radio" name="theme" id="th_light" value="light"><label for="th_light">Terang</label>
+    <input type="radio" name="theme" id="th_dark" value="dark"><label for="th_dark">Gelap</label>
+    <input type="radio" name="theme" id="th_sys" value="system" checked><label for="th_sys">Sistem</label>
+  </div>
 </header>
 
 <div class="grid">
@@ -17,6 +24,7 @@
     <div class="status" id="status" role="status" aria-live="polite">Siap.</div>
   </div>
   <div id="paramHost"></div>
+  <div class="run-foot"><button class="btn primary" id="btnRun2" type="button">Jalankan simulasi</button></div>
 </aside>
 
 <main>
