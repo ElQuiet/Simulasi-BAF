@@ -327,10 +327,10 @@ h_kontak = k_gas/(δ+M) + h_rad,celah + 1,25 k_s (m/σ)(P/H)^0,95</div>
           <p><b>Sifat material.</b> c<sub>p</sub> baja menurut EN 1993-1-2, k baja AISI 1010, SS310 dari data pabrikan dengan tren austenitik.</p>
         </div>
         <div class="note">
-          <p><b>Diskretisasi.</b> Volume hingga, sel 5 mm (tatakan 20×40×5 sel), Euler implisit, Gauss–Seidel garis dengan kolom vertikal diselesaikan algoritma Thomas. Sifat material dan radiasi diperbarui tiap langkah waktu.</p>
-          <p><b>Uji konvergensi.</b> Lag pada T<sub>atm</sub> = 300 °C: 20,31 °C (sel 5 mm, Δt 5 s), 20,31 °C (Δt 1 s), 20,32 °C (sel 10 mm).</p>
-          <p><b>Neraca energi.</b> Jumlah panas yang masuk lewat semua permukaan (tab Tampilan 3D) memberi laju naik suhu benda 2,00 °C/min selama ramp 2 °C/min.</p>
-          <p><b>Batas model.</b> Suhu gas dianggap seragam di dalam muffle; bentuk penyangga dan poros digambar sebagai ilustrasi sampai sketsa asli tersedia.</p>
+          <p><b>Diskretisasi.</b> Volume hingga, sel 5 mm (tatakan 20×40×5 sel), Euler implisit, Gauss–Seidel garis dengan relaksasi 1,5 dan kolom vertikal diselesaikan algoritma Thomas. Radiasi, h dan kontak dievaluasi ulang pada suhu akhir tiap langkah (implisit penuh).</p>
+          <p><b>Verifikasi (37/37 uji lulus).</b> Konveksi lumped vs solusi eksak: galat 0,7%. Radiasi lumped vs solusi eksak: 0,14 °C. Konduksi pelat vs deret Fourier: ≤ 0,43 °C. Kekekalan energi pada siklus penuh: residu ≤ 0,002 J per langkah. Konvergensi sel dan Δt: ≤ 0,005 °C pada lag.</p>
+          <p><b>Ketidakpastian.</b> Lag pada 300 °C ≈ 17–25 °C akibat emisivitas, konveksi dan dudukan; 11–31 °C bila posisi termokopel atau poros jack berbeda dari asumsi. Gunakan tombol Pita ketidakpastian dan validasi dengan termokopel tertanam sebelum dipakai untuk keputusan proses.</p>
+          <p><b>Batas model.</b> Suhu gas seragam dan sama dengan termokopel; dinding isotermal; c<sub>p</sub> SS310 di atas 100 °C adalah perkiraan; poros jack dimodelkan konservatif.</p>
         </div>
       </div>
     </section>
@@ -551,8 +551,10 @@ h_kontak = k_gas/(δ+M) + h_rad,celah + 1,25 k_s (m/σ)(P/H)^0,95</div>
       this.record(); this.snapshot();
     }
 
-    // perbarui sifat termal, konduktansi dan kondisi batas pada awal langkah waktu
-    updateCoefficients(Tatm, Twall) {
+    // sifat termal dan konduktansi internal, dievaluasi pada suhu awal langkah
+    updateCoefficients(Tatm, Twall) { this.updateProps(); this.updateBoundary(Tatm, Twall); }
+
+    updateProps() {
       const P = this.P, { nx, ny, nz, dx, dz, nsx, nsy, ns, th, i0, j0 } = this;
       const constP = P.props === 'const';
       const SS = MAT.ss310, ST = MAT.steel;
@@ -597,6 +599,13 @@ h_kontak = k_gas/(δ+M) + h_rad,celah + 1,25 k_s (m/σ)(P/H)^0,95</div>
         }
       }
 
+    }
+
+    // koefisien perpindahan panas permukaan & kontak, dievaluasi pada iterasi suhu terkini
+    updateBoundary(Tatm, Twall) {
+      const P = this.P, { nx, ny, nz, dx, dz, nsx, nsy, ns, th, i0, j0 } = this;
+      const T = this.T, S = this.S, kt = this.kt, ks = this.ks;
+      const Ax = dx * dz, Az = dx * dx;
       // koefisien konveksi permukaan (dengan suhu rata-rata kelompok permukaan)
       const xH2 = P.gas.xH2;
       let sumTop = 0, nTop = 0, sumBot = 0, sumSide = 0, nSide = 0;
@@ -612,14 +621,19 @@ h_kontak = k_gas/(δ+M) + h_rad,celah + 1,25 k_s (m/σ)(P/H)^0,95</div>
       const Tbot = sumBot / (nx * ny), Ttop = nTop ? sumTop / nTop : Tbot;
       const Tside = sumSide / nSide, Tsp = sumSpec / (nsx * nsy);
       const hf = hForced(Tatm, P.gas.flow, this.Across, P.tray.Ly, xH2);
-      const hTop = hComb(hNatural(Ttop, Tatm, 'up', this.Lh, xH2), hf);
-      const hBot = hComb(hNatural(Tbot, Tatm, 'down', this.Lh, xH2), hf);
-      const hSide = hComb(hNatural(Tside, Tatm, 'vert', P.tray.Lz, xH2), hf);
-      const hSpec = hComb(hNatural(Tsp, Tatm, 'up', (P.spec.Lx * P.spec.Ly) / (2 * (P.spec.Lx + P.spec.Ly)), xH2), hf);
+      let hTop = hComb(hNatural(Ttop, Tatm, 'up', this.Lh, xH2), hf);
+      let hBot = hComb(hNatural(Tbot, Tatm, 'down', this.Lh, xH2), hf);
+      let hSide = hComb(hNatural(Tside, Tatm, 'vert', P.tray.Lz, xH2), hf);
+      let hSpec = hComb(hNatural(Tsp, Tatm, 'up', (P.spec.Lx * P.spec.Ly) / (2 * (P.spec.Lx + P.spec.Ly)), xH2), hf);
+      // kait verifikasi (hanya dipakai skrip uji): h konveksi tetap / pengali h / radiasi mati
+      const dbg = P.debug || {};
+      if (dbg.hConst != null) hTop = hBot = hSide = hSpec = dbg.hConst;
+      if (dbg.hScale != null) { hTop *= dbg.hScale; hBot *= dbg.hScale; hSide *= dbg.hScale; hSpec *= dbg.hScale; }
       this.hInfo = { hTop, hBot, hSide, hSpec, hForced: hf };
 
       const TwK = Twall + TK;
-      const hrad = (Ts, F) => { const t = Ts + TK; return F * SIG * (TwK * TwK + t * t) * (TwK + t); };
+      const radOn = !dbg.noRad;
+      const hrad = (Ts, F) => { if (!radOn) return 0; const t = Ts + TK; return F * SIG * (TwK * TwK + t * t) * (TwK + t); };
       const fb = P.support.bottomView;
       const hFloor = P.support.floorH || 0;
       const Tamb = P.support.shaftTamb;
@@ -682,7 +696,7 @@ h_kontak = k_gas/(δ+M) + h_rad,celah + 1,25 k_s (m/σ)(P/H)^0,95</div>
       const tNew = this.t + dt;
       const Tatm = this.prog.f(tNew);
       const Twall = Tatm + P.furnace.dTwall;
-      this.updateCoefficients(Tatm, Twall);
+      this.updateProps();                                  // c_p, k pada suhu awal langkah
       const T = this.T, S = this.S, Told = this.Told, Sold = this.Sold;
       Told.set(T); Sold.set(S);
       // prediktor: ekstrapolasi linear dari langkah sebelumnya
@@ -690,6 +704,27 @@ h_kontak = k_gas/(δ+M) + h_rad,celah + 1,25 k_s (m/σ)(P/H)^0,95</div>
         for (let n = 0; n < this.NT; n++) T[n] = 2 * T[n] - this.Tprev[n];
         for (let n = 0; n < this.NS; n++) S[n] = 2 * S[n] - this.Sprev[n];
       }
+      // Iterasi Picard: radiasi (∝T⁴), h konveksi dan kontak dievaluasi ulang pada suhu akhir langkah
+      // sehingga kondisi batas implisit penuh (bukan tertinggal satu langkah).
+      let it = 0;
+      for (let pass = 0; pass < 4; pass++) {
+        this.updateBoundary(Tatm, Twall);
+        const r = this.solveGS(dt);
+        it += r.it;
+        if (pass > 0 && r.first < 1e-3) break;
+      }
+      this.Tprev = this.Tprev || new Float64Array(this.NT);
+      this.Sprev = this.Sprev || new Float64Array(this.NS);
+      this.Tprev.set(Told); this.Sprev.set(Sold);
+      this.t = tNew;
+      this.stepCount++; this.iterTotal += it; if (it > this.iterMax) this.iterMax = it;
+      this.lastTatm = Tatm; this.lastTwall = Twall;
+    }
+
+    // Gauss–Seidel garis (kolom z diselesaikan Thomas) untuk sistem Euler implisit
+    solveGS(dt) {
+      const P = this.P, { nx, ny, nz, nsx, nsy, ns } = this;
+      const T = this.T, S = this.S, Told = this.Told, Sold = this.Sold;
       const { Ct, Cs, Gx, Gy, Gz, gb, qb, Gsx, Gsy, Gss, Gc, gbs, qbs } = this;
       const nmax = nz + ns;
       const a = this.a || (this.a = new Float64Array(nmax));
@@ -697,9 +732,10 @@ h_kontak = k_gas/(δ+M) + h_rad,celah + 1,25 k_s (m/σ)(P/H)^0,95</div>
       const c = this.c || (this.c = new Float64Array(nmax));
       const d = this.d || (this.d = new Float64Array(nmax));
       const x = this.x || (this.x = new Float64Array(nmax));
-      const tol = P.tol || 0.002;
-      const maxIt = 200;
-      let it = 0, maxChange = 0;
+      const tol = P.tol || 1e-4;                // K, perubahan maks per sapuan
+      const maxIt = 2000;
+      const w = P.omega || 1.5;                 // faktor relaksasi berlebih (line-SOR)
+      let it = 0, maxChange = 0, first = 0;
       const nzx = nx * nz;
       do {
         maxChange = 0;
@@ -751,26 +787,24 @@ h_kontak = k_gas/(δ+M) + h_rad,celah + 1,25 k_s (m/σ)(P/H)^0,95</div>
             for (let r = m - 2; r >= 0; r--) x[r] = (d[r] - c[r] * x[r + 1]) / b[r];
             for (let k = 0; k < nz; k++) {
               const n = col * nz + k;
-              const ch = Math.abs(x[k] - T[n]);
+              const xn = T[n] + w * (x[k] - T[n]);
+              const ch = Math.abs(xn - T[n]);
               if (ch > maxChange) maxChange = ch;
-              T[n] = x[k];
+              T[n] = xn;
             }
             if (sc >= 0) for (let s = 0; s < ns; s++) {
               const n = sc * ns + s;
-              const ch = Math.abs(x[nz + s] - S[n]);
+              const xs = S[n] + w * (x[nz + s] - S[n]);
+              const ch = Math.abs(xs - S[n]);
               if (ch > maxChange) maxChange = ch;
-              S[n] = x[nz + s];
+              S[n] = xs;
             }
           }
         }
+        if (it === 0) first = maxChange;
         it++;
       } while (maxChange > tol && it < maxIt);
-      this.Tprev = this.Tprev || new Float64Array(this.NT);
-      this.Sprev = this.Sprev || new Float64Array(this.NS);
-      this.Tprev.set(Told); this.Sprev.set(Sold);
-      this.t = tNew;
-      this.stepCount++; this.iterTotal += it; if (it > this.iterMax) this.iterMax = it;
-      this.lastTatm = Tatm; this.lastTwall = Twall;
+      return { it, first };
     }
 
     // energi keseimbangan: kapasitas panas total
@@ -874,7 +908,7 @@ h_kontak = k_gas/(δ+M) + h_rad,celah + 1,25 k_s (m/σ)(P/H)^0,95</div>
 
   function defaults() {
     return {
-      grid: 5, dt: 5, tol: 0.002, props: 'T',
+      grid: 5, dt: 5, tol: 1e-4, omega: 1.5, props: 'T',
       tray: { Lx: 0.10, Ly: 0.20, Lz: 0.01, nz: 5, eps: 0.78 },
       spec: { Lx: 0.08, Ly: 0.10, th: 0.00035, nSheets: 1, eps: 0.78 },
       contact: { gap_um: 50, rough_um: 1.0, slope: 0.1, H_GPa: 2.0, force_tf: 0 },

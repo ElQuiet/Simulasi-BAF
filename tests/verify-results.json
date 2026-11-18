@@ -1,0 +1,337 @@
+[
+ {
+  "name": "U1 lag pada menit 30 (τ = 11.8 min)",
+  "value": 21.79721800682485,
+  "ref": 21.699449802175874,
+  "err": 0.0977682046489754,
+  "tolAbs": 0.48398899604351747,
+  "unit": "°C",
+  "ok": true
+ },
+ {
+  "name": "U1 lag pada menit 100 (τ = 11.8 min)",
+  "value": 23.696049744783892,
+  "ref": 23.53464177224138,
+  "err": 0.16140797254251282,
+  "tolAbs": 0.5206928354448276,
+  "unit": "°C",
+  "ok": true
+ },
+ {
+  "name": "U1 lag pada menit 200 (τ = 11.8 min)",
+  "value": 23.700924119303295,
+  "ref": 23.539447714044105,
+  "err": 0.16147640525919016,
+  "tolAbs": 0.5207889542808821,
+  "unit": "°C",
+  "ok": true
+ },
+ {
+  "name": "U2 Δt 2 s: suhu pada t = 2.8 min (acuan 300 °C)",
+  "value": 299.7583225493517,
+  "ref": 300,
+  "err": -0.2416774506482966,
+  "tolAbs": 1,
+  "unit": "°C",
+  "ok": true
+ },
+ {
+  "name": "U2 Δt 2 s: suhu pada t = 5.8 min (acuan 500 °C)",
+  "value": 499.35909680747653,
+  "ref": 500,
+  "err": -0.6409031925234672,
+  "tolAbs": 1,
+  "unit": "°C",
+  "ok": true
+ },
+ {
+  "name": "U2 Δt 2 s: suhu pada t = 9.4 min (acuan 600 °C)",
+  "value": 599.5334569876469,
+  "ref": 600,
+  "err": -0.4665430123530996,
+  "tolAbs": 1,
+  "unit": "°C",
+  "ok": true
+ },
+ {
+  "name": "U2 Δt 0,25 s: suhu pada t = 2.8 min (acuan 300 °C)",
+  "value": 299.95594277815354,
+  "ref": 300,
+  "err": -0.044057221846458106,
+  "tolAbs": 0.25,
+  "unit": "°C",
+  "ok": true
+ },
+ {
+  "name": "U2 Δt 0,25 s: suhu pada t = 5.8 min (acuan 500 °C)",
+  "value": 499.8623889432257,
+  "ref": 500,
+  "err": -0.13761105677428986,
+  "tolAbs": 0.25,
+  "unit": "°C",
+  "ok": true
+ },
+ {
+  "name": "U2 Δt 0,25 s: suhu pada t = 9.4 min (acuan 600 °C)",
+  "value": 599.9124909090204,
+  "ref": 600,
+  "err": -0.08750909097955173,
+  "tolAbs": 0.25,
+  "unit": "°C",
+  "ok": true
+ },
+ {
+  "name": "U3 bidang tengah, t = 60 s (Bi = 0.61)",
+  "value": 98.75340835353737,
+  "ref": 98.44038579505434,
+  "err": 0.31302255848302707,
+  "tolAbs": 1,
+  "unit": "°C",
+  "ok": true
+ },
+ {
+  "name": "U3 dekat permukaan, t = 60 s",
+  "value": 212.48725684755044,
+  "ref": 212.8199576862698,
+  "err": -0.3327008387193473,
+  "tolAbs": 1,
+  "unit": "°C",
+  "ok": true
+ },
+ {
+  "name": "U3 bidang tengah, t = 150 s (Bi = 0.61)",
+  "value": 234.58202943143294,
+  "ref": 234.74282723973215,
+  "err": -0.16079780829920765,
+  "tolAbs": 1,
+  "unit": "°C",
+  "ok": true
+ },
+ {
+  "name": "U3 dekat permukaan, t = 150 s",
+  "value": 320.4737273314338,
+  "ref": 320.82298424938875,
+  "err": -0.3492569179549605,
+  "tolAbs": 1,
+  "unit": "°C",
+  "ok": true
+ },
+ {
+  "name": "U3 bidang tengah, t = 300 s (Bi = 0.61)",
+  "value": 388.98297303577027,
+  "ref": 389.35886308310666,
+  "err": -0.37589004733638376,
+  "tolAbs": 1,
+  "unit": "°C",
+  "ok": true
+ },
+ {
+  "name": "U3 dekat permukaan, t = 300 s",
+  "value": 441.3380153022578,
+  "ref": 441.76753070883115,
+  "err": -0.42951540657333,
+  "tolAbs": 1,
+  "unit": "°C",
+  "ok": true
+ },
+ {
+  "name": "U4 energi masuk lewat batas vs perubahan energi tersimpan (kJ)",
+  "value": 508.890651474952,
+  "ref": 508.89079279915865,
+  "err": -0.00014132420665191603,
+  "tolAbs": 0.5088907927991586,
+  "unit": "kJ",
+  "ok": true,
+  "note": "residu per langkah maks 0.0020 J"
+ },
+ {
+  "name": "U4 energi tersimpan diskret vs entalpi ∫cp dT (kJ)",
+  "value": 508.89079279915865,
+  "ref": 508.90436585148797,
+  "err": -0.01357305232932049,
+  "tolAbs": 2.54452182925744,
+  "unit": "kJ",
+  "ok": true,
+  "note": "galat cp tertinggal satu langkah"
+ },
+ {
+  "name": "U5 lag @300 °C: Δt 5 s vs 1 s",
+  "value": 20.3123506809805,
+  "ref": 20.3128505964915,
+  "err": -0.0004999155109999265,
+  "tolAbs": 0.1,
+  "unit": "°C",
+  "ok": true
+ },
+ {
+  "name": "U5 lag @300 °C: sel 5 mm vs 10 mm",
+  "value": 20.3123506809805,
+  "ref": 20.317179210952304,
+  "err": -0.004828529971803164,
+  "tolAbs": 0.1,
+  "unit": "°C",
+  "ok": true
+ },
+ {
+  "name": "U5 lag @300 °C: 5 vs 10 lapisan tebal",
+  "value": 20.3123506809805,
+  "ref": 20.312668175442525,
+  "err": -0.0003174944620241149,
+  "tolAbs": 0.1,
+  "unit": "°C",
+  "ok": true
+ },
+ {
+  "name": "U5 ΔT spesimen maks: sel 5 vs 10 mm",
+  "value": 1.005761609275254,
+  "ref": 0.9096910947040726,
+  "err": 0.09607051457118132,
+  "tolAbs": 0.2,
+  "unit": "°C",
+  "ok": true
+ },
+ {
+  "name": "U6 k N₂ 300 K (W/m·K)",
+  "value": 0.0259,
+  "ref": 0.0259,
+  "err": 0,
+  "tolAbs": 0.0007769999999999999,
+  "unit": "",
+  "ok": true
+ },
+ {
+  "name": "U6 ν N₂ 300 K (×1e-6 m²/s)",
+  "value": 15.63,
+  "ref": 15.63,
+  "err": 0,
+  "tolAbs": 0.6252000000000001,
+  "unit": "",
+  "ok": true
+ },
+ {
+  "name": "U6 k N₂ 400 K (W/m·K)",
+  "value": 0.032415444302189664,
+  "ref": 0.0327,
+  "err": -0.00028455569781033613,
+  "tolAbs": 0.0009809999999999999,
+  "unit": "",
+  "ok": true
+ },
+ {
+  "name": "U6 ν N₂ 400 K (×1e-6 m²/s)",
+  "value": 25.489119315663533,
+  "ref": 25.740000000000002,
+  "err": -0.2508806843364688,
+  "tolAbs": 1.0296,
+  "unit": "",
+  "ok": true
+ },
+ {
+  "name": "U6 k N₂ 600 K (W/m·K)",
+  "value": 0.04447368960747564,
+  "ref": 0.0446,
+  "err": -0.00012631039252435777,
+  "tolAbs": 0.001338,
+  "unit": "",
+  "ok": true
+ },
+ {
+  "name": "U6 ν N₂ 600 K (×1e-6 m²/s)",
+  "value": 50.78201982019184,
+  "ref": 52.15,
+  "err": -1.367980179808157,
+  "tolAbs": 2.086,
+  "unit": "",
+  "ok": true
+ },
+ {
+  "name": "U6 k N₂ 800 K (W/m·K)",
+  "value": 0.05566156016926634,
+  "ref": 0.0548,
+  "err": 0.0008615601692663413,
+  "tolAbs": 0.001644,
+  "unit": "",
+  "ok": true
+ },
+ {
+  "name": "U6 ν N₂ 800 K (×1e-6 m²/s)",
+  "value": 82.81439298063086,
+  "ref": 84.12,
+  "err": -1.3056070193691482,
+  "tolAbs": 3.3648,
+  "unit": "",
+  "ok": true
+ },
+ {
+  "name": "U6 k N₂ 1000 K (W/m·K)",
+  "value": 0.06624379208375981,
+  "ref": 0.0646,
+  "err": 0.0016437920837598097,
+  "tolAbs": 0.001938,
+  "unit": "",
+  "ok": true
+ },
+ {
+  "name": "U6 ν N₂ 1000 K (×1e-6 m²/s)",
+  "value": 121.01880076954313,
+  "ref": 121.89999999999999,
+  "err": -0.8811992304568577,
+  "tolAbs": 4.8759999999999994,
+  "unit": "",
+  "ok": true
+ },
+ {
+  "name": "U6 cp baja 20 °C (J/kg·K)",
+  "value": 439.80176,
+  "ref": 439.8,
+  "err": 0.0017599999999902138,
+  "tolAbs": 0.5,
+  "unit": "",
+  "ok": true
+ },
+ {
+  "name": "U6 cp baja 300 °C (J/kg·K)",
+  "value": 564.7399999999999,
+  "ref": 564.7,
+  "err": 0.03999999999984993,
+  "tolAbs": 0.5,
+  "unit": "",
+  "ok": true
+ },
+ {
+  "name": "U6 cp baja 600 °C (J/kg·K)",
+  "value": 760.2173913043479,
+  "ref": 760.2,
+  "err": 0.0173913043478251,
+  "tolAbs": 0.5,
+  "unit": "",
+  "ok": true
+ },
+ {
+  "name": "U6 cp baja 700 °C (J/kg·K)",
+  "value": 1008.1578947368421,
+  "ref": 1008.2,
+  "err": -0.042105263157964146,
+  "tolAbs": 0.5,
+  "unit": "",
+  "ok": true
+ },
+ {
+  "name": "U6 k SS310 100 °C",
+  "value": 14.195,
+  "ref": 14.2,
+  "err": -0.004999999999999005,
+  "tolAbs": 0.05,
+  "unit": "W/m·K",
+  "ok": true
+ },
+ {
+  "name": "U6 k SS310 500 °C",
+  "value": 18.695,
+  "ref": 18.7,
+  "err": -0.004999999999999005,
+  "tolAbs": 0.05,
+  "unit": "W/m·K",
+  "ok": true
+ }
+]

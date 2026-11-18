@@ -159,10 +159,10 @@ h_kontak = k_gas/(δ+M) + h_rad,celah + 1,25 k_s (m/σ)(P/H)^0,95</div>
           <p><b>Sifat material.</b> c<sub>p</sub> baja menurut EN 1993-1-2, k baja AISI 1010, SS310 dari data pabrikan dengan tren austenitik.</p>
         </div>
         <div class="note">
-          <p><b>Diskretisasi.</b> Volume hingga, sel 5 mm (tatakan 20×40×5 sel), Euler implisit, Gauss–Seidel garis dengan kolom vertikal diselesaikan algoritma Thomas. Sifat material dan radiasi diperbarui tiap langkah waktu.</p>
-          <p><b>Uji konvergensi.</b> Lag pada T<sub>atm</sub> = 300 °C: 20,31 °C (sel 5 mm, Δt 5 s), 20,31 °C (Δt 1 s), 20,32 °C (sel 10 mm).</p>
-          <p><b>Neraca energi.</b> Jumlah panas yang masuk lewat semua permukaan (tab Tampilan 3D) memberi laju naik suhu benda 2,00 °C/min selama ramp 2 °C/min.</p>
-          <p><b>Batas model.</b> Suhu gas dianggap seragam di dalam muffle; bentuk penyangga dan poros digambar sebagai ilustrasi sampai sketsa asli tersedia.</p>
+          <p><b>Diskretisasi.</b> Volume hingga, sel 5 mm (tatakan 20×40×5 sel), Euler implisit, Gauss–Seidel garis dengan relaksasi 1,5 dan kolom vertikal diselesaikan algoritma Thomas. Radiasi, h dan kontak dievaluasi ulang pada suhu akhir tiap langkah (implisit penuh).</p>
+          <p><b>Verifikasi (37/37 uji lulus).</b> Konveksi lumped vs solusi eksak: galat 0,7%. Radiasi lumped vs solusi eksak: 0,14 °C. Konduksi pelat vs deret Fourier: ≤ 0,43 °C. Kekekalan energi pada siklus penuh: residu ≤ 0,002 J per langkah. Konvergensi sel dan Δt: ≤ 0,005 °C pada lag.</p>
+          <p><b>Ketidakpastian.</b> Lag pada 300 °C ≈ 17–25 °C akibat emisivitas, konveksi dan dudukan; 11–31 °C bila posisi termokopel atau poros jack berbeda dari asumsi. Gunakan tombol Pita ketidakpastian dan validasi dengan termokopel tertanam sebelum dipakai untuk keputusan proses.</p>
+          <p><b>Batas model.</b> Suhu gas seragam dan sama dengan termokopel; dinding isotermal; c<sub>p</sub> SS310 di atas 100 °C adalah perkiraan; poros jack dimodelkan konservatif.</p>
         </div>
       </div>
     </section>

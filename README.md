@@ -44,10 +44,11 @@ Perhitungan berjalan di browser pengguna (Web Worker), jadi server hanya
 menyajikan halaman. Halaman memuat three.js, Chart.js dan font dari CDN publik,
 sehingga pengguna perlu akses internet.
 
-## Uji cepat solver
+## Verifikasi
 
 ```
-node -e "const B=require('./src/baf-solver.js');const P=B.prepare(B.defaults());const s=new B.BafSim(P).runAll();console.log(B.summarize(s).lag300)"
+node tests/verify.js        # 37 uji: solusi analitik, kekekalan energi, konvergensi, sifat material
+node tests/sensitivity.js   # pengaruh tiap parameter tak pasti
 ```
 
-Dengan nilai bawaan (data PDF, spesimen 0,35 mm) hasilnya sekitar 20,3 °C.
+Hasil dan pembahasannya ada di [VALIDASI.md](VALIDASI.md). Jalankan `tests/verify.js` setiap kali `src/baf-solver.js` diubah.
