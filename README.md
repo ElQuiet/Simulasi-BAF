@@ -31,18 +31,8 @@ pip install -r requirements.txt
 streamlit run streamlit_app.py
 ```
 
-`app/index.html` juga bisa dibuka langsung di browser tanpa Streamlit.
+`app/index.html` juga bisa dibuka langsung di browser.
 
-## Deploy ke Streamlit Community Cloud
-
-1. Unggah folder ini ke repositori GitHub (sertakan `app/index.html` hasil build).
-2. Di share.streamlit.io pilih **New app**, pilih repositori dan cabang, lalu isi
-   *Main file path* dengan `streamlit_app.py`.
-3. Deploy. Tidak ada secret atau database yang dibutuhkan.
-
-Perhitungan berjalan di browser pengguna (Web Worker), jadi server hanya
-menyajikan halaman. Halaman memuat three.js, Chart.js dan font dari CDN publik,
-sehingga pengguna perlu akses internet.
 
 ## Verifikasi
 
