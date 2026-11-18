@@ -1,0 +1,160 @@
+<div class="wrap">
+<header class="top">
+  <h1>Simulator Termal BAF</h1>
+  <p>Prediksi suhu spesimen dan tatakan di dalam muffle dari program suhu tungku, dengan model konduksi 3D transien.</p>
+</header>
+
+<div class="grid">
+<aside class="params" aria-label="Parameter simulasi">
+  <div class="run-bar">
+    <div class="seg" role="radiogroup" aria-label="Sumber parameter">
+      <input type="radio" name="mode" id="mode_pdf" value="pdf" checked><label for="mode_pdf">Preset PDF</label>
+      <input type="radio" name="mode" id="mode_manual" value="manual"><label for="mode_manual">Input manual</label>
+    </div>
+    <p class="mode-note" id="modeNote"></p>
+    <button class="btn primary" id="btnRun" type="button">Jalankan simulasi</button>
+    <div class="progress" aria-hidden="true"><i id="prog"></i></div>
+    <div class="status" id="status" role="status" aria-live="polite">Siap.</div>
+  </div>
+  <div id="paramHost"></div>
+</aside>
+
+<main>
+  <p class="verdict" id="verdict" aria-live="polite">Menyiapkan simulasi…</p>
+  <section class="kpis" id="kpis" aria-label="Ringkasan hasil"></section>
+
+  <div class="tabs" role="tablist" aria-label="Tampilan hasil">
+    <button role="tab" id="t-sum" aria-controls="tab-sum" aria-selected="true" type="button">Ringkasan</button>
+    <button role="tab" id="t-3d" aria-controls="tab-3d" aria-selected="false" type="button" tabindex="-1">Tampilan 3D</button>
+    <button role="tab" id="t-map" aria-controls="tab-map" aria-selected="false" type="button" tabindex="-1">Peta 2D &amp; mekanisme</button>
+    <button role="tab" id="t-data" aria-controls="tab-data" aria-selected="false" type="button" tabindex="-1">Data</button>
+    <button role="tab" id="t-method" aria-controls="tab-method" aria-selected="false" type="button" tabindex="-1">Metode</button>
+  </div>
+
+  <div class="timebar" id="timebar" hidden>
+    <button class="btn sm" id="btnPlay" type="button">Putar</button>
+    <input type="range" id="snapSlider" min="0" max="0" value="0" aria-label="Waktu yang ditampilkan">
+    <span class="readout" id="snapRead">–</span>
+  </div>
+
+  <div class="tabpanel" id="tab-sum" role="tabpanel" aria-labelledby="t-sum">
+    <section class="panel">
+      <div class="panel-h"><h2>Respons temperatur</h2>
+        <div class="toolbar">
+          <button class="btn sm" id="btnBand" type="button" title="Jalankan dua kasus batas: emisivitas 0,70/0,85 dan celah kontak 150/20 µm">Pita ketidakpastian</button>
+          <button class="btn sm" id="btnPin" type="button" title="Simpan kurva spesimen ini, lalu ubah parameter dan jalankan lagi untuk membandingkan">Simpan sebagai pembanding</button>
+          <button class="btn sm" id="btnUnpin" type="button" hidden>Hapus pembanding</button>
+        </div>
+      </div>
+      <div class="chart-box"><canvas id="chT" aria-label="Grafik temperatur terhadap waktu" role="img"></canvas></div>
+    </section>
+    <section class="panel">
+      <div class="panel-h"><h2>Thermal lag dan keseragaman</h2><p>Klik grafik untuk membuka waktu itu di tampilan 3D dan peta.</p></div>
+      <div class="chart-box sm"><canvas id="chLag" aria-label="Grafik thermal lag" role="img"></canvas></div>
+    </section>
+    <section class="panel" id="calibPanel" hidden>
+      <div class="panel-h"><h2>Kalibrasi terhadap pengukuran</h2><p>Termokopel virtual dibandingkan dengan kolom ke-3 log CSV.</p></div>
+      <div id="calibOut"></div>
+    </section>
+  </div>
+
+  <div class="tabpanel" id="tab-3d" role="tabpanel" aria-labelledby="t-3d" hidden>
+    <section class="panel">
+      <div class="v3-wrap">
+        <div class="v3-main">
+          <div id="view3d" class="view3d"></div>
+          <div class="legend"><span id="legMin3">–</span><canvas id="cvLeg3" width="220" height="12"></canvas><span id="legMax3">–</span></div>
+          <div class="flow-key" id="flowKey">
+            <span><i style="background:var(--accent)"></i>panas masuk dari dinding dan gas</span>
+            <span><i style="background:var(--steel)"></i>panas keluar</span>
+            <span><i style="background:var(--tray)"></i>konduksi di dalam tatakan</span>
+            <span>Kepadatan dan kecepatan sebanding dengan fluks.</span>
+          </div>
+          <div class="hover" id="hover3d">Seret untuk memutar, gulir untuk zoom. Arahkan kursor ke benda untuk membaca suhu.</div>
+        </div>
+        <div class="v3-side">
+          <div class="btn-row" role="group" aria-label="Sudut pandang">
+            <button class="btn sm" type="button" data-view="iso">Isometrik</button>
+            <button class="btn sm" type="button" data-view="top">Atas</button>
+            <button class="btn sm" type="button" data-view="side">Samping</button>
+            <button class="btn sm" type="button" data-view="front">Depan</button>
+          </div>
+          <div class="f"><label for="v3_vis">Visual fluks panas</label><div class="inp"><select id="v3_vis"><option value="flow" selected>Aliran partikel</option><option value="arrow">Panah</option><option value="none">Sembunyikan</option></select></div></div>
+          <div class="f"><label for="v3_mult">Perbesar tebal spesimen</label><div class="inp"><select id="v3_mult"><option value="1">×1 (skala nyata)</option><option value="10" selected>×10</option><option value="30">×30</option></select></div></div>
+          <label class="chk"><input id="v3_cut" type="checkbox"> Potong di tengah lebar</label>
+          <label class="chk"><input id="v3_explode" type="checkbox"> Angkat spesimen 18 mm</label>
+          <div class="tbl" id="flux3d"></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="tabpanel" id="tab-map" role="tabpanel" aria-labelledby="t-map" hidden>
+    <div class="two">
+      <section class="panel" style="display:flex;flex-direction:column;gap:10px">
+        <div class="panel-h" style="margin:0"><h2>Distribusi panas</h2>
+          <div class="toolbar" style="font-size:13px">
+            <label class="chk"><input type="radio" name="scale" value="rel" checked> Skala relatif</label>
+            <label class="chk"><input type="radio" name="scale" value="abs"> Skala absolut</label>
+          </div>
+        </div>
+        <h3>Tampak atas</h3>
+        <div class="cv-box"><canvas class="heat" id="cvPlan" width="800" height="400" aria-label="Peta suhu tampak atas" role="img"></canvas></div>
+        <h3>Potongan memanjang di tengah lebar, tebal diperbesar</h3>
+        <div class="cv-box"><canvas class="heat" id="cvSec" width="800" height="230" aria-label="Peta suhu potongan" role="img"></canvas></div>
+        <div class="legend"><span id="legMin">–</span><canvas id="cvLeg" width="220" height="12"></canvas><span id="legMax">–</span><span id="legInfo"></span></div>
+        <div class="hover" id="hoverInfo">Arahkan kursor ke peta untuk membaca suhu titik.</div>
+      </section>
+      <section class="panel">
+        <div class="panel-h"><h2>Mekanisme perpindahan panas</h2><p id="mechT"></p></div>
+        <div class="tbl"><table id="mechTbl"></table></div>
+      </section>
+    </div>
+  </div>
+
+  <div class="tabpanel" id="tab-data" role="tabpanel" aria-labelledby="t-data" hidden>
+    <section class="panel">
+      <div class="panel-h"><h2>Data hasil per menit</h2><p>Tempel ke Excel untuk analisis lanjutan, misalnya kinetika rekristalisasi JMAK.</p></div>
+      <div class="btn-row"><button class="btn" id="btnCopy" type="button">Salin CSV</button><button class="btn" id="btnDownload" type="button" hidden>Unduh CSV</button></div>
+      <textarea id="csvOut" readonly style="margin-top:10px;min-height:220px" aria-label="Hasil CSV"></textarea>
+    </section>
+    <section class="panel">
+      <div class="panel-h"><h2>Data lapangan yang menaikkan akurasi</h2></div>
+      <div class="tbl"><table>
+        <thead><tr><th>Data</th><th>Diisi di</th><th>Pengaruh pada hasil</th></tr></thead>
+        <tbody>
+          <tr><td>Log suhu controller (CSV)</td><td>Program suhu tungku → Log CSV</td><td>Menggantikan ramp ideal; menangkap overshoot dan laju nyata.</td></tr>
+          <tr><td>Posisi termokopel atmosfer</td><td>Tungku → selisih T<sub>dinding</sub> − T<sub>atm</sub></td><td>Besar. Termokopel dekat elemen membaca lebih tinggi daripada sekitar tatakan.</td></tr>
+          <tr><td>Sketsa dudukan tatakan &amp; poros</td><td>Dudukan tatakan</td><td>Besar pada keseragaman: poros yang menembus dinding membuat titik dingin.</td></tr>
+          <tr><td>Gaya tekan hidrolik</td><td>Kontak &amp; tekanan</td><td>Menaikkan konduktansi kontak; penting bila lembar ditumpuk.</td></tr>
+          <tr><td>Debit gas</td><td>Tungku → debit gas</td><td>Kecil; konveksi alami dan radiasi dominan.</td></tr>
+          <tr><td>Termokopel tertanam di bawah spesimen</td><td>Kolom ke-3 CSV + termokopel virtual</td><td>Validasi langsung; RMSE tampil di tab Ringkasan.</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+  </div>
+
+  <div class="tabpanel" id="tab-method" role="tabpanel" aria-labelledby="t-method" hidden>
+    <section class="panel">
+      <div class="cols">
+        <div class="note">
+          <p><b>Persamaan atur.</b> Konduksi transien 3D pada tatakan dan tiap lembar spesimen:</p>
+          <div class="eq">ρ cₚ(T) ∂T/∂t = ∇·(k(T) ∇T)
+q = h_konv(T_atm − T_s) + F ε σ (T_w⁴ − T_s⁴)
+F = 1 / [1/ε_s + (A_s/A_w)(1/ε_w − 1)]
+h_kontak = k_gas/(δ+M) + h_rad,celah + 1,25 k_s (m/σ)(P/H)^0,95</div>
+          <p><b>Konveksi gas</b> dari korelasi pelat horizontal dan vertikal (Incropera) dengan sifat N₂–H₂ fungsi suhu, digabung dengan konveksi paksa dari debit gas.</p>
+          <p><b>Sifat material.</b> c<sub>p</sub> baja menurut EN 1993-1-2, k baja AISI 1010, SS310 dari data pabrikan dengan tren austenitik.</p>
+        </div>
+        <div class="note">
+          <p><b>Diskretisasi.</b> Volume hingga, sel 5 mm (tatakan 20×40×5 sel), Euler implisit, Gauss–Seidel garis dengan kolom vertikal diselesaikan algoritma Thomas. Sifat material dan radiasi diperbarui tiap langkah waktu.</p>
+          <p><b>Uji konvergensi.</b> Lag pada T<sub>atm</sub> = 300 °C: 20,31 °C (sel 5 mm, Δt 5 s), 20,31 °C (Δt 1 s), 20,32 °C (sel 10 mm).</p>
+          <p><b>Neraca energi.</b> Jumlah panas yang masuk lewat semua permukaan (tab Tampilan 3D) memberi laju naik suhu benda 2,00 °C/min selama ramp 2 °C/min.</p>
+          <p><b>Batas model.</b> Suhu gas dianggap seragam di dalam muffle; bentuk penyangga dan poros digambar sebagai ilustrasi sampai sketsa asli tersedia.</p>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+</div>
+</div>

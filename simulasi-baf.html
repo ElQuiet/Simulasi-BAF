@@ -1,0 +1,1853 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Simulator Termal BAF</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: panel parameter kiri (alur kerja: sumber → program → benda → jalankan) + hasil bertab di kanan.
+   Satu aksen "pijar" untuk panas; biru baja untuk spesimen & panas keluar. */
+:root{
+  --bg:#eef1f3; --surface:#ffffff; --surface-2:#f6f8f9; --line:#d5dbe0; --fg:#18232c; --muted:#5b6974;
+  --accent:#d9480f; --accent-soft:#fbe4d8; --steel:#2f6f9f; --tray:#a35a12; --atm:#6b7782; --ok:#2b8a3e; --warn:#a86a12; --crit:#c92a2a;
+  --f-display:"Archivo", "Segoe UI", system-ui, sans-serif;
+  --f-body:"IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono:"IBM Plex Mono", ui-monospace, Consolas, monospace;
+  accent-color:var(--accent); scrollbar-color:var(--line) transparent;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#111820; --surface:#18212a; --surface-2:#1d2732; --line:#2c3a46; --fg:#e4eaef; --muted:#93a3b0;
+  --accent:#ff7a3d; --accent-soft:#3a2418; --steel:#6cb2e6; --tray:#e0a25c; --atm:#9aa7b3; --ok:#69db7c; --warn:#f2c14e; --crit:#ff8787; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#111820; --surface:#18212a; --surface-2:#1d2732; --line:#2c3a46; --fg:#e4eaef; --muted:#93a3b0;
+  --accent:#ff7a3d; --accent-soft:#3a2418; --steel:#6cb2e6; --tray:#e0a25c; --atm:#9aa7b3; --ok:#69db7c; --warn:#f2c14e; --crit:#ff8787; color-scheme:dark }
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+::selection{background:var(--accent-soft);color:var(--fg)}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:14px;line-height:1.5;margin:0}
+.wrap{max-width:1560px;margin:0 auto;padding-block:18px 40px;padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
+header.top{display:flex;flex-wrap:wrap;gap:6px 24px;align-items:baseline;justify-content:space-between;border-bottom:2px solid var(--fg);padding-bottom:12px;margin-bottom:16px}
+h1{font-family:var(--f-display);font-weight:800;font-size:clamp(22px,2.6vw,30px);letter-spacing:-.01em;margin:0;text-wrap:balance}
+header.top p{margin:0;color:var(--muted);max-width:70ch}
+h2{font-family:var(--f-display);font-weight:700;font-size:17px;margin:0;text-wrap:balance}
+h3{font-family:var(--f-body);font-weight:600;font-size:13px;margin:0;color:var(--muted)}
+.grid{display:grid;grid-template-columns:360px minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:1000px){.grid{grid-template-columns:minmax(0,1fr)}}
+
+/* ---------- panel parameter ---------- */
+aside.params{background:var(--surface);border:1px solid var(--line);border-radius:6px;position:sticky;top:env(safe-area-inset-top,0px);max-height:calc(100vh - 20px);overflow-y:auto;overflow-x:hidden;min-width:0}
+@media (max-width:1000px){aside.params{position:static;max-height:none}}
+.run-bar{position:sticky;top:0;z-index:3;background:var(--surface);padding:14px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:10px}
+.seg{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:5px;overflow:hidden}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg label{text-align:center;padding:7px 8px;font-weight:600;font-size:13px;cursor:pointer;color:var(--muted);background:var(--surface-2)}
+.seg input:checked+label{background:var(--fg);color:var(--surface)}
+.seg input:focus-visible+label{outline:2px solid var(--accent);outline-offset:-2px}
+.mode-note{font-size:12.5px;color:var(--muted);margin:0}
+.linkbtn{background:none;border:0;padding:0;color:var(--accent);font:inherit;font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.btn{font-family:var(--f-body);font-weight:600;font-size:14px;border-radius:4px;border:1px solid var(--line);background:var(--surface-2);color:var(--fg);padding:8px 12px;cursor:pointer;transition:border-color .15s,background-color .15s}
+.btn:hover{border-color:var(--muted)}
+.btn:disabled{opacity:.55;cursor:not-allowed}
+.btn:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible,.linkbtn:focus-visible,[role=tab]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-size:15px;padding:10px 12px}
+.btn.primary:hover{filter:brightness(1.07)}
+.btn.primary:disabled{cursor:wait}
+.btn.primary.stale{box-shadow:0 0 0 3px var(--accent-soft)}
+.btn.sm{font-size:13px;padding:5px 10px}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap}
+.progress{height:4px;background:var(--surface-2);border-radius:2px;overflow:hidden}
+.progress i{display:block;height:100%;width:0;background:var(--accent);transition:width .1s}
+.status{font-size:12.5px;color:var(--muted);min-height:1.2em}
+.status.stale{color:var(--accent)}
+.status.err{color:var(--crit)}
+details.grp{border-bottom:1px solid var(--line)}
+details.grp>summary{list-style:none;cursor:pointer;padding:12px 14px;display:flex;gap:10px;justify-content:space-between;align-items:center;font-family:var(--f-display);font-weight:700;font-size:14px}
+details.grp>summary::-webkit-details-marker{display:none}
+details.grp>summary .sum{font-family:var(--f-body);font-weight:400;font-size:12px;color:var(--muted);margin-left:auto;text-align:right;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+details.grp>summary::after{content:"+";font-family:var(--f-mono);color:var(--muted);flex:none}
+details.grp[open]>summary::after{content:"–"}
+details.grp[open]>summary .sum{display:none}
+.fields{padding:0 14px 16px;display:grid;gap:12px;min-width:0}
+.f{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,148px);gap:3px 10px;align-items:center;min-width:0}
+.f>label{font-size:13px;min-width:0;overflow-wrap:anywhere}
+.f .note-line{grid-column:1/-1;font-size:11.5px;color:var(--muted);line-height:1.35}
+.f .err{grid-column:1/-1;font-size:12px;color:var(--crit)}
+.f.invalid input{border-color:var(--crit)}
+.tag{display:inline-block;font-family:var(--f-mono);font-size:10.5px;line-height:1.5;padding:0 5px;border-radius:3px;margin-left:4px;vertical-align:1px;letter-spacing:.02em;white-space:nowrap}
+.tag.pdf{background:color-mix(in srgb,var(--steel) 18%,transparent);color:var(--steel)}
+.tag.asm{background:color-mix(in srgb,var(--warn) 22%,transparent);color:var(--warn)}
+.tag.lit{background:color-mix(in srgb,var(--ok) 18%,transparent);color:var(--ok)}
+.tag.need{background:color-mix(in srgb,var(--crit) 16%,transparent);color:var(--crit)}
+body[data-mode="manual"] .pdf-only{display:none!important}
+.inp{display:flex;align-items:center;gap:4px;min-width:0}
+.inp input,.inp select{width:100%;min-width:0;font-family:var(--f-mono);font-size:13px;padding:6px 6px;border:1px solid var(--line);border-radius:4px;background:var(--surface-2);color:var(--fg)}
+.inp input:disabled{opacity:.45}
+.inp em{font-style:normal;font-size:11px;color:var(--muted);font-family:var(--f-mono);white-space:nowrap;flex:none}
+.chk{display:flex;gap:8px;align-items:center;font-size:13px;cursor:pointer}
+.sub-seg{display:flex;gap:14px;font-size:13px}
+textarea{width:100%;font-family:var(--f-mono);font-size:12px;border:1px solid var(--line);border-radius:4px;background:var(--surface-2);color:var(--fg);padding:6px;min-height:96px;resize:vertical}
+
+/* ---------- hasil ---------- */
+main{display:flex;flex-direction:column;gap:14px;min-width:0}
+.verdict{font-size:16px;line-height:1.5;margin:0;max-width:95ch}
+.verdict b{font-weight:600}
+.kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+@media (max-width:1300px){.kpis{grid-template-columns:repeat(3,minmax(0,1fr))} .kpi:first-child{grid-column:span 2}}
+@media (max-width:560px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.kpi{background:var(--surface);padding:12px 14px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.kpi .k{font-size:12px;color:var(--muted)}
+.kpi .v{font-family:var(--f-mono);font-size:24px;font-weight:500;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.kpi .v small{font-size:13px;color:var(--muted);margin-left:3px}
+.kpi .n{font-size:12px;color:var(--muted)}
+.kpi.hl .v{color:var(--accent)}
+.pill{display:inline-block;font-size:11.5px;padding:0 7px;border-radius:10px;border:1px solid currentColor;margin-right:4px}
+.pill.ok{color:var(--ok)} .pill.warn{color:var(--warn)} .pill.crit{color:var(--crit)}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:thin}
+.tabs [role=tab]{background:none;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;padding:9px 14px;font:600 14px var(--f-body);color:var(--muted);cursor:pointer;white-space:nowrap}
+.tabs [role=tab]:hover{color:var(--fg)}
+.tabs [role=tab][aria-selected=true]{color:var(--fg);border-bottom-color:var(--accent)}
+.tabpanel{display:flex;flex-direction:column;gap:14px;min-width:0}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:16px;min-width:0}
+.panel-h{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:6px 16px;margin-bottom:12px}
+.panel-h p{margin:0;color:var(--muted);font-size:13px}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.chart-box{position:relative;height:340px}
+.chart-box.sm{height:220px}
+.timebar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:8px 12px}
+.timebar input[type=range]{flex:1 1 240px;min-width:0}
+.readout{font-family:var(--f-mono);font-size:13px;font-variant-numeric:tabular-nums}
+.two{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:14px}
+@media (max-width:1250px){.two{grid-template-columns:minmax(0,1fr)}}
+.v3-wrap{display:grid;grid-template-columns:minmax(0,1.75fr) minmax(0,1fr);gap:16px}
+@media (max-width:1250px){.v3-wrap{grid-template-columns:minmax(0,1fr)}}
+.v3-main,.v3-side{display:flex;flex-direction:column;gap:10px;min-width:0}
+.view3d{border:1px solid var(--line);border-radius:3px;overflow:hidden;min-height:300px;background:var(--surface-2)}
+.cv-box{overflow-x:auto}
+canvas.heat{display:block;width:100%;max-width:760px;image-rendering:pixelated;border:1px solid var(--line);border-radius:3px;cursor:crosshair}
+.legend{display:flex;align-items:center;gap:8px;font-family:var(--f-mono);font-size:12px;color:var(--muted);flex-wrap:wrap}
+.legend canvas{height:12px;width:220px;max-width:50vw;border-radius:2px;border:1px solid var(--line)}
+.hover{font-size:12.5px;color:var(--muted);min-height:1.4em}
+.flow-key{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12.5px;color:var(--muted)}
+.flow-key i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:0}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;color:var(--muted);font-weight:600}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+td.num{font-family:var(--f-mono)}
+.tbl{overflow-x:auto}
+.mech-bar{display:flex;height:10px;border-radius:2px;overflow:hidden;background:var(--surface-2);min-width:80px}
+.mech-bar i{display:block;height:100%}
+.note{font-size:13px;color:var(--muted);max-width:75ch}
+.note b{color:var(--fg)}
+.eq{font-family:var(--f-mono);font-size:12.5px;background:var(--surface-2);border:1px solid var(--line);border-radius:4px;padding:8px 10px;overflow-x:auto;white-space:pre}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px}
+@media (prefers-reduced-motion: reduce){.progress i,.btn{transition:none}}
+
+</style>
+<div class="wrap">
+<header class="top">
+  <h1>Simulator Termal BAF</h1>
+  <p>Prediksi suhu spesimen dan tatakan di dalam muffle dari program suhu tungku, dengan model konduksi 3D transien.</p>
+</header>
+
+<div class="grid">
+<aside class="params" aria-label="Parameter simulasi">
+  <div class="run-bar">
+    <div class="seg" role="radiogroup" aria-label="Sumber parameter">
+      <input type="radio" name="mode" id="mode_pdf" value="pdf" checked><label for="mode_pdf">Preset PDF</label>
+      <input type="radio" name="mode" id="mode_manual" value="manual"><label for="mode_manual">Input manual</label>
+    </div>
+    <p class="mode-note" id="modeNote"></p>
+    <button class="btn primary" id="btnRun" type="button">Jalankan simulasi</button>
+    <div class="progress" aria-hidden="true"><i id="prog"></i></div>
+    <div class="status" id="status" role="status" aria-live="polite">Siap.</div>
+  </div>
+  <div id="paramHost"></div>
+</aside>
+
+<main>
+  <p class="verdict" id="verdict" aria-live="polite">Menyiapkan simulasi…</p>
+  <section class="kpis" id="kpis" aria-label="Ringkasan hasil"></section>
+
+  <div class="tabs" role="tablist" aria-label="Tampilan hasil">
+    <button role="tab" id="t-sum" aria-controls="tab-sum" aria-selected="true" type="button">Ringkasan</button>
+    <button role="tab" id="t-3d" aria-controls="tab-3d" aria-selected="false" type="button" tabindex="-1">Tampilan 3D</button>
+    <button role="tab" id="t-map" aria-controls="tab-map" aria-selected="false" type="button" tabindex="-1">Peta 2D &amp; mekanisme</button>
+    <button role="tab" id="t-data" aria-controls="tab-data" aria-selected="false" type="button" tabindex="-1">Data</button>
+    <button role="tab" id="t-method" aria-controls="tab-method" aria-selected="false" type="button" tabindex="-1">Metode</button>
+  </div>
+
+  <div class="timebar" id="timebar" hidden>
+    <button class="btn sm" id="btnPlay" type="button">Putar</button>
+    <input type="range" id="snapSlider" min="0" max="0" value="0" aria-label="Waktu yang ditampilkan">
+    <span class="readout" id="snapRead">–</span>
+  </div>
+
+  <div class="tabpanel" id="tab-sum" role="tabpanel" aria-labelledby="t-sum">
+    <section class="panel">
+      <div class="panel-h"><h2>Respons temperatur</h2>
+        <div class="toolbar">
+          <button class="btn sm" id="btnBand" type="button" title="Jalankan dua kasus batas: emisivitas 0,70/0,85 dan celah kontak 150/20 µm">Pita ketidakpastian</button>
+          <button class="btn sm" id="btnPin" type="button" title="Simpan kurva spesimen ini, lalu ubah parameter dan jalankan lagi untuk membandingkan">Simpan sebagai pembanding</button>
+          <button class="btn sm" id="btnUnpin" type="button" hidden>Hapus pembanding</button>
+        </div>
+      </div>
+      <div class="chart-box"><canvas id="chT" aria-label="Grafik temperatur terhadap waktu" role="img"></canvas></div>
+    </section>
+    <section class="panel">
+      <div class="panel-h"><h2>Thermal lag dan keseragaman</h2><p>Klik grafik untuk membuka waktu itu di tampilan 3D dan peta.</p></div>
+      <div class="chart-box sm"><canvas id="chLag" aria-label="Grafik thermal lag" role="img"></canvas></div>
+    </section>
+    <section class="panel" id="calibPanel" hidden>
+      <div class="panel-h"><h2>Kalibrasi terhadap pengukuran</h2><p>Termokopel virtual dibandingkan dengan kolom ke-3 log CSV.</p></div>
+      <div id="calibOut"></div>
+    </section>
+  </div>
+
+  <div class="tabpanel" id="tab-3d" role="tabpanel" aria-labelledby="t-3d" hidden>
+    <section class="panel">
+      <div class="v3-wrap">
+        <div class="v3-main">
+          <div id="view3d" class="view3d"></div>
+          <div class="legend"><span id="legMin3">–</span><canvas id="cvLeg3" width="220" height="12"></canvas><span id="legMax3">–</span></div>
+          <div class="flow-key" id="flowKey">
+            <span><i style="background:var(--accent)"></i>panas masuk dari dinding dan gas</span>
+            <span><i style="background:var(--steel)"></i>panas keluar</span>
+            <span><i style="background:var(--tray)"></i>konduksi di dalam tatakan</span>
+            <span>Kepadatan dan kecepatan sebanding dengan fluks.</span>
+          </div>
+          <div class="hover" id="hover3d">Seret untuk memutar, gulir untuk zoom. Arahkan kursor ke benda untuk membaca suhu.</div>
+        </div>
+        <div class="v3-side">
+          <div class="btn-row" role="group" aria-label="Sudut pandang">
+            <button class="btn sm" type="button" data-view="iso">Isometrik</button>
+            <button class="btn sm" type="button" data-view="top">Atas</button>
+            <button class="btn sm" type="button" data-view="side">Samping</button>
+            <button class="btn sm" type="button" data-view="front">Depan</button>
+          </div>
+          <div class="f"><label for="v3_vis">Visual fluks panas</label><div class="inp"><select id="v3_vis"><option value="flow" selected>Aliran partikel</option><option value="arrow">Panah</option><option value="none">Sembunyikan</option></select></div></div>
+          <div class="f"><label for="v3_mult">Perbesar tebal spesimen</label><div class="inp"><select id="v3_mult"><option value="1">×1 (skala nyata)</option><option value="10" selected>×10</option><option value="30">×30</option></select></div></div>
+          <label class="chk"><input id="v3_cut" type="checkbox"> Potong di tengah lebar</label>
+          <label class="chk"><input id="v3_explode" type="checkbox"> Angkat spesimen 18 mm</label>
+          <div class="tbl" id="flux3d"></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="tabpanel" id="tab-map" role="tabpanel" aria-labelledby="t-map" hidden>
+    <div class="two">
+      <section class="panel" style="display:flex;flex-direction:column;gap:10px">
+        <div class="panel-h" style="margin:0"><h2>Distribusi panas</h2>
+          <div class="toolbar" style="font-size:13px">
+            <label class="chk"><input type="radio" name="scale" value="rel" checked> Skala relatif</label>
+            <label class="chk"><input type="radio" name="scale" value="abs"> Skala absolut</label>
+          </div>
+        </div>
+        <h3>Tampak atas</h3>
+        <div class="cv-box"><canvas class="heat" id="cvPlan" width="800" height="400" aria-label="Peta suhu tampak atas" role="img"></canvas></div>
+        <h3>Potongan memanjang di tengah lebar, tebal diperbesar</h3>
+        <div class="cv-box"><canvas class="heat" id="cvSec" width="800" height="230" aria-label="Peta suhu potongan" role="img"></canvas></div>
+        <div class="legend"><span id="legMin">–</span><canvas id="cvLeg" width="220" height="12"></canvas><span id="legMax">–</span><span id="legInfo"></span></div>
+        <div class="hover" id="hoverInfo">Arahkan kursor ke peta untuk membaca suhu titik.</div>
+      </section>
+      <section class="panel">
+        <div class="panel-h"><h2>Mekanisme perpindahan panas</h2><p id="mechT"></p></div>
+        <div class="tbl"><table id="mechTbl"></table></div>
+      </section>
+    </div>
+  </div>
+
+  <div class="tabpanel" id="tab-data" role="tabpanel" aria-labelledby="t-data" hidden>
+    <section class="panel">
+      <div class="panel-h"><h2>Data hasil per menit</h2><p>Tempel ke Excel untuk analisis lanjutan, misalnya kinetika rekristalisasi JMAK.</p></div>
+      <div class="btn-row"><button class="btn" id="btnCopy" type="button">Salin CSV</button><button class="btn" id="btnDownload" type="button" hidden>Unduh CSV</button></div>
+      <textarea id="csvOut" readonly style="margin-top:10px;min-height:220px" aria-label="Hasil CSV"></textarea>
+    </section>
+    <section class="panel">
+      <div class="panel-h"><h2>Data lapangan yang menaikkan akurasi</h2></div>
+      <div class="tbl"><table>
+        <thead><tr><th>Data</th><th>Diisi di</th><th>Pengaruh pada hasil</th></tr></thead>
+        <tbody>
+          <tr><td>Log suhu controller (CSV)</td><td>Program suhu tungku → Log CSV</td><td>Menggantikan ramp ideal; menangkap overshoot dan laju nyata.</td></tr>
+          <tr><td>Posisi termokopel atmosfer</td><td>Tungku → selisih T<sub>dinding</sub> − T<sub>atm</sub></td><td>Besar. Termokopel dekat elemen membaca lebih tinggi daripada sekitar tatakan.</td></tr>
+          <tr><td>Sketsa dudukan tatakan &amp; poros</td><td>Dudukan tatakan</td><td>Besar pada keseragaman: poros yang menembus dinding membuat titik dingin.</td></tr>
+          <tr><td>Gaya tekan hidrolik</td><td>Kontak &amp; tekanan</td><td>Menaikkan konduktansi kontak; penting bila lembar ditumpuk.</td></tr>
+          <tr><td>Debit gas</td><td>Tungku → debit gas</td><td>Kecil; konveksi alami dan radiasi dominan.</td></tr>
+          <tr><td>Termokopel tertanam di bawah spesimen</td><td>Kolom ke-3 CSV + termokopel virtual</td><td>Validasi langsung; RMSE tampil di tab Ringkasan.</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+  </div>
+
+  <div class="tabpanel" id="tab-method" role="tabpanel" aria-labelledby="t-method" hidden>
+    <section class="panel">
+      <div class="cols">
+        <div class="note">
+          <p><b>Persamaan atur.</b> Konduksi transien 3D pada tatakan dan tiap lembar spesimen:</p>
+          <div class="eq">ρ cₚ(T) ∂T/∂t = ∇·(k(T) ∇T)
+q = h_konv(T_atm − T_s) + F ε σ (T_w⁴ − T_s⁴)
+F = 1 / [1/ε_s + (A_s/A_w)(1/ε_w − 1)]
+h_kontak = k_gas/(δ+M) + h_rad,celah + 1,25 k_s (m/σ)(P/H)^0,95</div>
+          <p><b>Konveksi gas</b> dari korelasi pelat horizontal dan vertikal (Incropera) dengan sifat N₂–H₂ fungsi suhu, digabung dengan konveksi paksa dari debit gas.</p>
+          <p><b>Sifat material.</b> c<sub>p</sub> baja menurut EN 1993-1-2, k baja AISI 1010, SS310 dari data pabrikan dengan tren austenitik.</p>
+        </div>
+        <div class="note">
+          <p><b>Diskretisasi.</b> Volume hingga, sel 5 mm (tatakan 20×40×5 sel), Euler implisit, Gauss–Seidel garis dengan kolom vertikal diselesaikan algoritma Thomas. Sifat material dan radiasi diperbarui tiap langkah waktu.</p>
+          <p><b>Uji konvergensi.</b> Lag pada T<sub>atm</sub> = 300 °C: 20,31 °C (sel 5 mm, Δt 5 s), 20,31 °C (Δt 1 s), 20,32 °C (sel 10 mm).</p>
+          <p><b>Neraca energi.</b> Jumlah panas yang masuk lewat semua permukaan (tab Tampilan 3D) memberi laju naik suhu benda 2,00 °C/min selama ramp 2 °C/min.</p>
+          <p><b>Batas model.</b> Suhu gas dianggap seragam di dalam muffle; bentuk penyangga dan poros digambar sebagai ilustrasi sampai sketsa asli tersedia.</p>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script id="baf-solver">
+/*
+ * BAF Simulator – solver perpindahan panas transien 3D (Finite Volume / FDM)
+ * Domain : tatakan SS310 (3D) + lembaran spesimen baja (2D per lembar, ditumpuk)
+ * Skema  : Euler implisit, Gauss–Seidel garis (kolom z diselesaikan dengan Thomas)
+ * Batas  : konveksi gas HNx (korelasi konveksi alami + paksa) + radiasi dinding muffle
+ *          + kontak termal (celah gas + radiasi celah + kontak padat Mikic) + sink poros jack
+ * Satuan : SI, suhu dalam °C (radiasi dihitung dalam K)
+ */
+(function (root) {
+  'use strict';
+  const SIG = 5.670374e-8, GRAV = 9.81, TK = 273.15;
+
+  function interp(xs, ys, x) {
+    if (x <= xs[0]) return ys[0];
+    const n = xs.length;
+    if (x >= xs[n - 1]) return ys[n - 1];
+    let i = 1;
+    while (xs[i] < x) i++;
+    const f = (x - xs[i - 1]) / (xs[i] - xs[i - 1]);
+    return ys[i - 1] + f * (ys[i] - ys[i - 1]);
+  }
+
+  // ---------- Sifat material ----------
+  const MAT = {
+    steel: {
+      name: 'Baja karbon rendah',
+      rho: 7850,
+      // cp: EN 1993-1-2 (Eurocode 3) – termasuk kenaikan menuju puncak Curie
+      cpT(T) {
+        if (T < 600) return 425 + 0.773 * T - 1.69e-3 * T * T + 2.22e-6 * T * T * T;
+        if (T < 735) return 666 + 13002 / (738 - T);
+        if (T < 900) return 545 + 17820 / (T - 731);
+        return 650;
+      },
+      // k: AISI 1010 (Incropera), °C
+      kT(T) { return interp([27, 127, 327, 527, 727], [63.9, 58.7, 48.8, 39.2, 31.3], T); },
+      cpC: 551, kC: 40.65 // nilai tengah rentang PDF (502–600 ; 31,3–50)
+    },
+    ss310: {
+      name: 'Stainless steel 310',
+      rho: 8000,
+      cpT(T) { return T <= 100 ? 500 : 500 + 0.18 * (T - 100); }, // tren austenitik
+      kT(T) { return 13.07 + 0.01125 * T; },                      // 14,2 @100°C ; 18,7 @500°C
+      cpC: 500, kC: 16.5
+    }
+  };
+
+  // ---------- Gas HNx ----------
+  function gasProps(TKel, xH2) {
+    const r = TKel / 300;
+    const k = 0.0259 * Math.pow(r, 0.78) * (1 + 1.9 * xH2);
+    const Mmix = 28.013 * (1 - xH2) + 2.016 * xH2;
+    const nu = 15.63e-6 * Math.pow(r, 1.7) * (28.013 / Mmix);
+    const Pr = 0.71;
+    return { k, nu, Pr, alpha: nu / Pr };
+  }
+
+  // Konveksi alami (Incropera Bab 9). orient: 'up' | 'down' | 'vert'
+  function hNatural(Ts, Tg, orient, L, xH2) {
+    const Tf = (Ts + Tg) / 2 + TK;
+    const g = gasProps(Tf, xH2);
+    const dT = Math.abs(Ts - Tg);
+    if (dT < 1e-6) return g.k / L;
+    const Ra = GRAV * (1 / Tf) * dT * L * L * L / (g.nu * g.alpha);
+    let Nu;
+    if (orient === 'vert') {
+      Nu = 0.68 + 0.67 * Math.pow(Ra, 0.25) / Math.pow(1 + Math.pow(0.492 / g.Pr, 9 / 16), 4 / 9);
+    } else {
+      const hot = Ts > Tg;
+      const unstable = (orient === 'up') === hot;
+      Nu = unstable ? (Ra < 1e7 ? 0.54 * Math.pow(Ra, 0.25) : 0.15 * Math.pow(Ra, 1 / 3))
+                    : 0.52 * Math.pow(Ra, 0.2);
+    }
+    return Math.max(Nu, 1) * g.k / L;
+  }
+
+  // Konveksi paksa laminar pelat datar dari debit gas
+  function hForced(Tg, flowLpm, Across, L, xH2) {
+    if (!(flowLpm > 0)) return 0;
+    const TKel = Tg + TK;
+    const g = gasProps(TKel, xH2);
+    const v = (flowLpm / 60000) * (TKel / TK) / Across;
+    const Re = v * L / g.nu;
+    return 0.664 * Math.sqrt(Re) * Math.pow(g.Pr, 1 / 3) * g.k / L;
+  }
+
+  function hComb(hn, hf) { return Math.cbrt(hn * hn * hn + hf * hf * hf); }
+
+  // ---------- Program suhu atmosfer ----------
+  function makeProgram(P) {
+    const pr = P.program;
+    if (pr.csv && pr.csv.t.length > 1) {
+      const t = pr.csv.t, T = pr.csv.T;
+      return { f: (s) => interp(t, T, s / 60), end: t[t.length - 1] * 60, T0: T[0] };
+    }
+    const T0 = pr.T0, rate = Math.max(pr.rate, 1e-6), Ts = pr.Tset;
+    const t1 = (Ts - T0) / rate;           // menit
+    const t2 = t1 + pr.soak;
+    const cr = Math.max(pr.coolRate || 1, 1e-6);
+    const t3 = pr.coolOn ? t2 + Math.max(0, (Ts - pr.Tend) / cr) : t2;
+    const f = (s) => {
+      const m = s / 60;
+      if (m <= t1) return T0 + rate * m;
+      if (m <= t2) return Ts;
+      if (pr.coolOn && m <= t3) return Ts - cr * (m - t2);
+      return pr.coolOn ? pr.Tend : Ts;
+    };
+    return { f, end: t3 * 60, T0, t1, t2, t3 };
+  }
+
+  // ---------- Konduktansi kontak ----------
+  // gas gap + radiasi celah + kontak padat (Mikic, deformasi plastis)
+  function hContact(T, P, k1, k2, eps1, eps2) {
+    const c = P.contact, xH2 = P.gas.xH2;
+    const TKel = T + TK;
+    const kg = gasProps(TKel, xH2).k;
+    const M = 0.5e-6 * (TKel / 300);                 // parameter loncatan suhu gas
+    const hg = kg / (c.gap_um * 1e-6 + M);
+    const hr = 4 * SIG * TKel * TKel * TKel / (1 / eps1 + 1 / eps2 - 1);
+    let hs = 0;
+    const Pc = P.contactPressure;                     // Pa
+    if (Pc > 0) {
+      const ks = 2 * k1 * k2 / (k1 + k2);
+      hs = 1.25 * ks * (c.slope / (c.rough_um * 1e-6)) * Math.pow(Pc / (c.H_GPa * 1e9), 0.95);
+    }
+    return hg + hr + hs;
+  }
+
+  // ---------- Simulator ----------
+  class BafSim {
+    constructor(P) {
+      this.P = P;
+      this.setup();
+    }
+
+    setup() {
+      const P = this.P;
+      const dx = P.grid / 1000;
+      const nx = Math.max(2, Math.round(P.tray.Lx / dx));
+      const ny = Math.max(2, Math.round(P.tray.Ly / dx));
+      const nz = Math.max(2, P.tray.nz | 0);
+      const dz = P.tray.Lz / nz;
+      const nsx = Math.min(nx, Math.max(1, Math.round(P.spec.Lx / dx)));
+      const nsy = Math.min(ny, Math.max(1, Math.round(P.spec.Ly / dx)));
+      const i0 = Math.floor((nx - nsx) / 2), j0 = Math.floor((ny - nsy) / 2);
+      const ns = Math.max(1, P.spec.nSheets | 0);
+      Object.assign(this, { dx, nx, ny, nz, dz, nsx, nsy, i0, j0, ns, th: P.spec.th });
+
+      const NT = nx * ny * nz, NS = nsx * nsy * ns;
+      this.NT = NT; this.NS = NS;
+      this.prog = makeProgram(P);
+      const T0 = this.prog.f(0);
+      this.T = new Float64Array(NT).fill(T0);
+      this.Told = new Float64Array(NT);
+      this.S = new Float64Array(NS).fill(T0);
+      this.Sold = new Float64Array(NS);
+      this.Ct = new Float64Array(NT); this.kt = new Float64Array(NT);
+      this.Cs = new Float64Array(NS); this.ks = new Float64Array(NS);
+      this.Gx = new Float64Array(NT); this.Gy = new Float64Array(NT); this.Gz = new Float64Array(NT);
+      this.gb = new Float64Array(NT); this.qb = new Float64Array(NT);
+      this.Gsx = new Float64Array(NS); this.Gsy = new Float64Array(NS); this.Gss = new Float64Array(NS);
+      this.Gc = new Float64Array(nsx * nsy);
+      this.gbs = new Float64Array(nsx * nsy); this.qbs = new Float64Array(nsx * nsy);
+      // map kolom tatakan -> kolom spesimen
+      this.specCol = new Int32Array(nx * ny).fill(-1);
+      for (let j = 0; j < nsy; j++) for (let i = 0; i < nsx; i++)
+        this.specCol[(j + j0) * nx + (i + i0)] = j * nsx + i;
+
+      // sink poros hydraulic jack
+      this.shaftW = new Float64Array(nx * ny);
+      if (P.support.shaftOn) {
+        const r = Math.max(P.support.shaftD / 2000, dx * 0.75);
+        const cx = P.tray.Lx / 2, cy = P.tray.Ly / 2;
+        let sum = 0;
+        for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+          const x = (i + 0.5) * dx, y = (j + 0.5) * dx;
+          if ((x - cx) ** 2 + (y - cy) ** 2 <= r * r) { this.shaftW[j * nx + i] = 1; sum++; }
+        }
+        if (sum > 0) for (let c = 0; c < nx * ny; c++) this.shaftW[c] /= sum;
+        const Ash = Math.PI * (P.support.shaftD / 1000) ** 2 / 4;
+        this.Gshaft = P.support.shaftK * Ash / (P.support.shaftL / 1000);
+      } else this.Gshaft = 0;
+
+      // faktor pertukaran radiasi (benda kecil dalam selubung)
+      const F = P.furnace;
+      const Aw = 2 * (F.W * F.H + F.W * F.D + F.H * F.D);
+      const As = 2 * P.tray.Lx * P.tray.Ly + 2 * P.tray.Lz * (P.tray.Lx + P.tray.Ly);
+      const ratio = Math.min(1, As / Aw);
+      this.Ftray = 1 / (1 / P.tray.eps + ratio * (1 / F.epsWall - 1));
+      this.Fspec = 1 / (1 / P.spec.eps + ratio * (1 / F.epsWall - 1));
+      this.Across = Math.max(1e-4, F.W * F.H - P.tray.Lx * P.tray.Lz);
+      this.Lh = (P.tray.Lx * P.tray.Ly) / (2 * (P.tray.Lx + P.tray.Ly));
+
+      // Probe termokopel virtual
+      const tc = P.tc;
+      this.tcI = Math.min(nx - 1, Math.max(0, Math.floor((P.tray.Lx / 2 + tc.x / 1000) / dx)));
+      this.tcJ = Math.min(ny - 1, Math.max(0, Math.floor((P.tray.Ly / 2 + tc.y / 1000) / dx)));
+      this.tcDepth = Math.min(P.tray.Lz, Math.max(0, tc.depth / 1000));
+
+      this.t = 0;
+      this.stepCount = 0; this.iterTotal = 0; this.iterMax = 0;
+      this.rec = [];
+      this.snaps = [];
+      const end = this.prog.end;
+      this.recEvery = 60;
+      this.snapEvery = Math.max(60, Math.ceil(end / 240 / 60) * 60);
+      this.record(); this.snapshot();
+    }
+
+    // perbarui sifat termal, konduktansi dan kondisi batas pada awal langkah waktu
+    updateCoefficients(Tatm, Twall) {
+      const P = this.P, { nx, ny, nz, dx, dz, nsx, nsy, ns, th, i0, j0 } = this;
+      const constP = P.props === 'const';
+      const SS = MAT.ss310, ST = MAT.steel;
+      const T = this.T, S = this.S;
+      const Vt = dx * dx * dz, Vs = dx * dx * th;
+      for (let n = 0; n < this.NT; n++) {
+        const Tn = T[n];
+        this.kt[n] = constP ? SS.kC : SS.kT(Tn);
+        this.Ct[n] = SS.rho * (constP ? SS.cpC : SS.cpT(Tn)) * Vt;
+      }
+      for (let n = 0; n < this.NS; n++) {
+        const Tn = S[n];
+        this.ks[n] = constP ? ST.kC : ST.kT(Tn);
+        this.Cs[n] = ST.rho * (constP ? ST.cpC : ST.cpT(Tn)) * Vs;
+      }
+      const kt = this.kt, ks = this.ks;
+      const hm = (a, b) => 2 * a * b / (a + b);
+      // konduktansi internal tatakan
+      const Ax = dx * dz, Az = dx * dx;
+      for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+        const col = j * nx + i;
+        for (let k = 0; k < nz; k++) {
+          const n = col * nz + k;
+          this.Gx[n] = i < nx - 1 ? hm(kt[n], kt[n + nz]) * Ax / dx : 0;
+          this.Gy[n] = j < ny - 1 ? hm(kt[n], kt[n + nx * nz]) * Ax / dx : 0;
+          this.Gz[n] = k < nz - 1 ? hm(kt[n], kt[n + 1]) * Az / dz : 0;
+        }
+      }
+      // konduktansi internal spesimen
+      const Asx = dx * th;
+      for (let j = 0; j < nsy; j++) for (let i = 0; i < nsx; i++) {
+        const c = j * nsx + i;
+        for (let s = 0; s < ns; s++) {
+          const n = c * ns + s;
+          this.Gsx[n] = i < nsx - 1 ? hm(ks[n], ks[n + ns]) * Asx / dx : 0;
+          this.Gsy[n] = j < nsy - 1 ? hm(ks[n], ks[n + nsx * ns]) * Asx / dx : 0;
+          if (s < ns - 1) {
+            const Tm = 0.5 * (S[n] + S[n + 1]);
+            const hc = hContact(Tm, P, ks[n], ks[n + 1], P.spec.eps, P.spec.eps);
+            this.Gss[n] = Az / (th / (2 * ks[n]) + 1 / hc + th / (2 * ks[n + 1]));
+          } else this.Gss[n] = 0;
+        }
+      }
+
+      // koefisien konveksi permukaan (dengan suhu rata-rata kelompok permukaan)
+      const xH2 = P.gas.xH2;
+      let sumTop = 0, nTop = 0, sumBot = 0, sumSide = 0, nSide = 0;
+      for (let col = 0; col < nx * ny; col++) {
+        sumBot += T[col * nz];
+        if (this.specCol[col] < 0) { sumTop += T[col * nz + nz - 1]; nTop++; }
+      }
+      for (let j = 0; j < ny; j++) for (let k = 0; k < nz; k++) {
+        sumSide += T[(j * nx) * nz + k] + T[(j * nx + nx - 1) * nz + k]; nSide += 2;
+      }
+      let sumSpec = 0;
+      for (let c = 0; c < nsx * nsy; c++) sumSpec += S[c * ns + ns - 1];
+      const Tbot = sumBot / (nx * ny), Ttop = nTop ? sumTop / nTop : Tbot;
+      const Tside = sumSide / nSide, Tsp = sumSpec / (nsx * nsy);
+      const hf = hForced(Tatm, P.gas.flow, this.Across, P.tray.Ly, xH2);
+      const hTop = hComb(hNatural(Ttop, Tatm, 'up', this.Lh, xH2), hf);
+      const hBot = hComb(hNatural(Tbot, Tatm, 'down', this.Lh, xH2), hf);
+      const hSide = hComb(hNatural(Tside, Tatm, 'vert', P.tray.Lz, xH2), hf);
+      const hSpec = hComb(hNatural(Tsp, Tatm, 'up', (P.spec.Lx * P.spec.Ly) / (2 * (P.spec.Lx + P.spec.Ly)), xH2), hf);
+      this.hInfo = { hTop, hBot, hSide, hSpec, hForced: hf };
+
+      const TwK = Twall + TK;
+      const hrad = (Ts, F) => { const t = Ts + TK; return F * SIG * (TwK * TwK + t * t) * (TwK + t); };
+      const fb = P.support.bottomView;
+      const hFloor = P.support.floorH || 0;
+      const Tamb = P.support.shaftTamb;
+      const gb = this.gb, qb = this.qb;
+      gb.fill(0); qb.fill(0);
+      // penambah kondisi batas: konduksi setengah sel seri dengan film permukaan
+      const addB = (n, A, half, hc, hr, extraG, extraQ) => {
+        const hs = hc + hr;
+        if (hs > 0) {
+          const G = A / (half / kt[n] + 1 / hs);
+          const Tenv = (hc * Tatm + hr * Twall) / hs;
+          gb[n] += G; qb[n] += G * Tenv;
+        }
+        if (extraG) { gb[n] += extraG; qb[n] += extraQ; }
+      };
+      for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+        const col = j * nx + i;
+        // bawah
+        const nB = col * nz;
+        let eG = 0, eQ = 0;
+        if (hFloor > 0) { const G = Az * hFloor; eG += G; eQ += G * Twall; }
+        if (this.Gshaft > 0 && this.shaftW[col] > 0) { const G = this.Gshaft * this.shaftW[col]; eG += G; eQ += G * Tamb; }
+        addB(nB, Az, dz / 2, fb * hBot, fb * hrad(T[nB], this.Ftray), eG, eQ);
+        // atas (jika tidak tertutup spesimen)
+        const nT = col * nz + nz - 1;
+        if (this.specCol[col] < 0) addB(nT, Az, dz / 2, hTop, hrad(T[nT], this.Ftray), 0, 0);
+        // sisi
+        for (let k = 0; k < nz; k++) {
+          const n = col * nz + k;
+          if (i === 0) addB(n, Ax, dx / 2, hSide, hrad(T[n], this.Ftray), 0, 0);
+          if (i === nx - 1) addB(n, Ax, dx / 2, hSide, hrad(T[n], this.Ftray), 0, 0);
+          if (j === 0) addB(n, Ax, dx / 2, hSide, hrad(T[n], this.Ftray), 0, 0);
+          if (j === ny - 1) addB(n, Ax, dx / 2, hSide, hrad(T[n], this.Ftray), 0, 0);
+        }
+      }
+      // kontak tatakan–spesimen dan permukaan atas spesimen
+      let hcSum = 0;
+      for (let jj = 0; jj < nsy; jj++) for (let ii = 0; ii < nsx; ii++) {
+        const c = jj * nsx + ii;
+        const col = (jj + j0) * nx + (ii + i0);
+        const nT = col * nz + nz - 1, n0 = c * ns;
+        const Tm = 0.5 * (T[nT] + S[n0]);
+        const hc = hContact(Tm, P, kt[nT], ks[n0], P.tray.eps, P.spec.eps);
+        hcSum += hc;
+        this.Gc[c] = Az / (dz / (2 * kt[nT]) + 1 / hc + th / (2 * ks[n0]));
+        const nTop = c * ns + ns - 1;
+        const hr = hrad(S[nTop], this.Fspec);
+        const hs = hSpec + hr;
+        const G = Az / (th / (2 * ks[nTop]) + 1 / hs);
+        this.gbs[c] = G;
+        this.qbs[c] = G * (hSpec * Tatm + hr * Twall) / hs;
+      }
+      this.hInfo.hContact = hcSum / (nsx * nsy);
+      this.hInfo.hRadTray = hrad(Ttop, this.Ftray);
+      this.hInfo.hRadSpec = hrad(Tsp, this.Fspec);
+    }
+
+    step(dt) {
+      const P = this.P, { nx, ny, nz, nsx, nsy, ns, i0, j0 } = this;
+      const tNew = this.t + dt;
+      const Tatm = this.prog.f(tNew);
+      const Twall = Tatm + P.furnace.dTwall;
+      this.updateCoefficients(Tatm, Twall);
+      const T = this.T, S = this.S, Told = this.Told, Sold = this.Sold;
+      Told.set(T); Sold.set(S);
+      // prediktor: ekstrapolasi linear dari langkah sebelumnya
+      if (this.Tprev) {
+        for (let n = 0; n < this.NT; n++) T[n] = 2 * T[n] - this.Tprev[n];
+        for (let n = 0; n < this.NS; n++) S[n] = 2 * S[n] - this.Sprev[n];
+      }
+      const { Ct, Cs, Gx, Gy, Gz, gb, qb, Gsx, Gsy, Gss, Gc, gbs, qbs } = this;
+      const nmax = nz + ns;
+      const a = this.a || (this.a = new Float64Array(nmax));
+      const b = this.b || (this.b = new Float64Array(nmax));
+      const c = this.c || (this.c = new Float64Array(nmax));
+      const d = this.d || (this.d = new Float64Array(nmax));
+      const x = this.x || (this.x = new Float64Array(nmax));
+      const tol = P.tol || 0.002;
+      const maxIt = 200;
+      let it = 0, maxChange = 0;
+      const nzx = nx * nz;
+      do {
+        maxChange = 0;
+        const rev = it & 1;
+        for (let jj = 0; jj < ny; jj++) {
+          const j = rev ? ny - 1 - jj : jj;
+          for (let ii = 0; ii < nx; ii++) {
+            const i = rev ? nx - 1 - ii : ii;
+            const col = j * nx + i;
+            const sc = this.specCol[col];
+            const m = sc >= 0 ? nz + ns : nz;
+            for (let k = 0; k < nz; k++) {
+              const n = col * nz + k;
+              let diag = Ct[n] / dt + gb[n];
+              let rhs = Ct[n] / dt * Told[n] + qb[n];
+              if (i > 0) { const g = Gx[n - nz]; diag += g; rhs += g * T[n - nz]; }
+              if (i < nx - 1) { const g = Gx[n]; diag += g; rhs += g * T[n + nz]; }
+              if (j > 0) { const g = Gy[n - nzx]; diag += g; rhs += g * T[n - nzx]; }
+              if (j < ny - 1) { const g = Gy[n]; diag += g; rhs += g * T[n + nzx]; }
+              const gdn = k > 0 ? Gz[n - 1] : 0;
+              let gup = k < nz - 1 ? Gz[n] : 0;
+              if (k === nz - 1 && sc >= 0) gup = Gc[sc];
+              diag += gdn + gup;
+              a[k] = -gdn; c[k] = -gup; b[k] = diag; d[k] = rhs;
+            }
+            if (sc >= 0) {
+              const si = sc % nsx, sj = (sc / nsx) | 0;
+              for (let s = 0; s < ns; s++) {
+                const n = sc * ns + s, r = nz + s;
+                let diag = Cs[n] / dt, rhs = Cs[n] / dt * Sold[n];
+                if (si > 0) { const g = Gsx[n - ns]; diag += g; rhs += g * S[n - ns]; }
+                if (si < nsx - 1) { const g = Gsx[n]; diag += g; rhs += g * S[n + ns]; }
+                if (sj > 0) { const g = Gsy[n - nsx * ns]; diag += g; rhs += g * S[n - nsx * ns]; }
+                if (sj < nsy - 1) { const g = Gsy[n]; diag += g; rhs += g * S[n + nsx * ns]; }
+                const gdn = s === 0 ? Gc[sc] : Gss[n - 1];
+                const gup = s < ns - 1 ? Gss[n] : 0;
+                if (s === ns - 1) { diag += gbs[sc]; rhs += qbs[sc]; }
+                diag += gdn + gup;
+                a[r] = -gdn; c[r] = -gup; b[r] = diag; d[r] = rhs;
+              }
+            }
+            // Thomas
+            for (let r = 1; r < m; r++) {
+              const w = a[r] / b[r - 1];
+              b[r] -= w * c[r - 1];
+              d[r] -= w * d[r - 1];
+            }
+            x[m - 1] = d[m - 1] / b[m - 1];
+            for (let r = m - 2; r >= 0; r--) x[r] = (d[r] - c[r] * x[r + 1]) / b[r];
+            for (let k = 0; k < nz; k++) {
+              const n = col * nz + k;
+              const ch = Math.abs(x[k] - T[n]);
+              if (ch > maxChange) maxChange = ch;
+              T[n] = x[k];
+            }
+            if (sc >= 0) for (let s = 0; s < ns; s++) {
+              const n = sc * ns + s;
+              const ch = Math.abs(x[nz + s] - S[n]);
+              if (ch > maxChange) maxChange = ch;
+              S[n] = x[nz + s];
+            }
+          }
+        }
+        it++;
+      } while (maxChange > tol && it < maxIt);
+      this.Tprev = this.Tprev || new Float64Array(this.NT);
+      this.Sprev = this.Sprev || new Float64Array(this.NS);
+      this.Tprev.set(Told); this.Sprev.set(Sold);
+      this.t = tNew;
+      this.stepCount++; this.iterTotal += it; if (it > this.iterMax) this.iterMax = it;
+      this.lastTatm = Tatm; this.lastTwall = Twall;
+    }
+
+    // energi keseimbangan: kapasitas panas total
+    tcValue() {
+      const { nz, nx, dz } = this;
+      const col = this.tcJ * nx + this.tcI;
+      // kedalaman dari atas -> posisi pusat sel
+      const zFromBottom = this.P.tray.Lz - this.tcDepth;
+      const kf = zFromBottom / dz - 0.5;
+      const k0 = Math.max(0, Math.min(nz - 1, Math.floor(kf)));
+      const k1 = Math.min(nz - 1, k0 + 1);
+      const f = Math.max(0, Math.min(1, kf - k0));
+      return this.T[col * nz + k0] * (1 - f) + this.T[col * nz + k1] * f;
+    }
+
+    record() {
+      const { nx, ny, nz, nsx, nsy, ns, T, S } = this;
+      let tMin = 1e9, tMax = -1e9, tSum = 0;
+      for (let n = 0; n < this.NT; n++) { const v = T[n]; tSum += v; if (v < tMin) tMin = v; if (v > tMax) tMax = v; }
+      let sMin = 1e9, sMax = -1e9, sSum = 0, bSum = 0, bMin = 1e9;
+      for (let c = 0; c < nsx * nsy; c++) {
+        const v = S[c * ns + ns - 1];
+        sSum += v; if (v < sMin) sMin = v; if (v > sMax) sMax = v;
+        const vb = S[c * ns];
+        bSum += vb; if (vb < bMin) bMin = vb;
+      }
+      const cc = (Math.floor(nsy / 2)) * nsx + Math.floor(nsx / 2);
+      const Tatm = this.prog.f(this.t);
+      this.rec.push({
+        t: this.t / 60,
+        Tatm,
+        Twall: Tatm + this.P.furnace.dTwall,
+        trayAvg: tSum / this.NT, trayMin: tMin, trayMax: tMax,
+        trayCtr: T[((Math.floor(ny / 2)) * nx + Math.floor(nx / 2)) * nz + nz - 1],
+        specAvg: sSum / (nsx * nsy), specMin: sMin, specMax: sMax,
+        specCtr: S[cc * ns + ns - 1], specCorner: S[ns - 1],
+        specBotAvg: bSum / (nsx * nsy), specBotMin: bMin,
+        tc: this.tcValue(),
+        h: this.hInfo ? Object.assign({}, this.hInfo) : null
+      });
+    }
+
+    snapshot() {
+      this.snaps.push({ t: this.t / 60, Tatm: this.prog.f(this.t), T: Float32Array.from(this.T), S: Float32Array.from(this.S) });
+    }
+
+    // jalankan sampai waktu habis atau batas waktu dinding (ms)
+    advance(budgetMs) {
+      const t0 = (typeof performance !== 'undefined' ? performance : Date).now();
+      const end = this.prog.end;
+      const dt = this.P.dt;
+      while (this.t < end - 1e-9) {
+        const h = Math.min(dt, end - this.t);
+        this.step(h);
+        const tr = Math.round(this.t * 1000);
+        if (tr % (this.recEvery * 1000) < h * 1000 - 1e-6 || this.t >= end - 1e-9) this.record();
+        if (tr % (this.snapEvery * 1000) < h * 1000 - 1e-6 || this.t >= end - 1e-9) this.snapshot();
+        if (budgetMs && ((typeof performance !== 'undefined' ? performance : Date).now() - t0) > budgetMs) break;
+      }
+      return this.t >= end - 1e-9;
+    }
+
+    progress() { return Math.min(1, this.t / this.prog.end); }
+
+    runAll() { this.advance(0); return this; }
+  }
+
+  // ---------- Ringkasan / KPI ----------
+  function summarize(sim) {
+    const R = sim.rec, P = sim.P;
+    const Tset = P.program.csv ? Math.max(...R.map(r => r.Tatm)) : P.program.Tset;
+    const firstAt = (pred) => { for (const r of R) if (pred(r)) return r; return null; };
+    const r300 = firstAt(r => r.Tatm >= 300);
+    let maxLag = 0, maxLagAt = null, maxSpread = 0, maxSpreadAt = null, maxTrayGrad = 0;
+    for (const r of R) {
+      const lag = r.Tatm - r.specAvg;
+      if (lag > maxLag) { maxLag = lag; maxLagAt = r; }
+      const sp = r.specMax - r.specMin;
+      if (sp > maxSpread) { maxSpread = sp; maxSpreadAt = r; }
+      if (r.trayMax - r.trayMin > maxTrayGrad) maxTrayGrad = r.trayMax - r.trayMin;
+    }
+    const atmReach = firstAt(r => r.Tatm >= Tset - 0.01);
+    const sp5 = firstAt(r => r.specMin >= Tset - 5);
+    const sp2 = firstAt(r => r.specMin >= Tset - 2);
+    let soakEff = 0;
+    for (let i = 1; i < R.length; i++) if (R[i].specMin >= Tset - 5 && R[i].specMax <= Tset + 5) soakEff += R[i].t - R[i - 1].t;
+    let peak = -1e9; for (const r of R) peak = Math.max(peak, r.specMax);
+    const massTray = MAT.ss310.rho * P.tray.Lx * P.tray.Ly * P.tray.Lz;
+    const massSpec = MAT.steel.rho * P.spec.Lx * P.spec.Ly * P.spec.th * P.spec.nSheets;
+    return {
+      Tset, lag300: r300 ? r300.Tatm - r300.specAvg : null, t300: r300 ? r300.t : null,
+      maxLag, maxLagAt: maxLagAt ? maxLagAt.t : null, maxLagTatm: maxLagAt ? maxLagAt.Tatm : null,
+      maxSpread, maxSpreadAt: maxSpreadAt ? maxSpreadAt.t : null, maxTrayGrad,
+      tAtmReach: atmReach ? atmReach.t : null,
+      tSpec5: sp5 ? sp5.t : null, tSpec2: sp2 ? sp2.t : null,
+      delay5: (sp5 && atmReach) ? sp5.t - atmReach.t : null,
+      soakEff, peak, massTray, massSpec,
+      steps: sim.stepCount, avgIter: sim.iterTotal / Math.max(1, sim.stepCount), maxIter: sim.iterMax
+    };
+  }
+
+  function defaults() {
+    return {
+      grid: 5, dt: 5, tol: 0.002, props: 'T',
+      tray: { Lx: 0.10, Ly: 0.20, Lz: 0.01, nz: 5, eps: 0.78 },
+      spec: { Lx: 0.08, Ly: 0.10, th: 0.00035, nSheets: 1, eps: 0.78 },
+      contact: { gap_um: 50, rough_um: 1.0, slope: 0.1, H_GPa: 2.0, force_tf: 0 },
+      furnace: { W: 0.175, H: 0.10, D: 0.30, epsWall: 0.85, dTwall: 0 },
+      gas: { flow: 2, xH2: 0.05 },
+      support: { bottomView: 0.85, floorH: 0, shaftOn: false, shaftD: 20, shaftL: 100, shaftK: 16, shaftTamb: 30 },
+      tc: { x: 0, y: 0, depth: 2 },
+      program: { T0: 30, rate: 2, Tset: 610, soak: 120, coolOn: false, coolRate: 1, Tend: 200, csv: null }
+    };
+  }
+
+  function prepare(P) {
+    // tekanan kontak dari gaya hidrolik (ton-force) dibagi luas overlap spesimen
+    const A = P.spec.Lx * P.spec.Ly;
+    P.contactPressure = (P.contact.force_tf || 0) * 9806.65 / A;
+    return P;
+  }
+
+  const api = { BafSim, summarize, defaults, prepare, MAT, gasProps, hNatural, hForced, hContact, makeProgram };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  else root.BAF = api;
+})(typeof window !== 'undefined' ? window : globalThis);
+
+</script>
+<script>
+(function(){
+'use strict';
+// =====================================================================
+// Simulator Termal BAF – antarmuka
+// =====================================================================
+const $ = (id) => document.getElementById(id);
+const fmt = (v, d=1) => (v==null || !isFinite(v)) ? '–' : Number(v).toLocaleString('id-ID',{minimumFractionDigits:d,maximumFractionDigits:d});
+const css = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const store = {
+  get(k){ try { return JSON.parse(localStorage.getItem('baf.'+k)); } catch(e){ return null; } },
+  set(k,v){ try { localStorage.setItem('baf.'+k, JSON.stringify(v)); } catch(e){} }
+};
+
+// ---------- Skema parameter ----------
+// pdf: nilai dari dokumen; tag: pdf|asm|lit|need; tagText: teks label; pnote: catatan sumber (mode PDF saja); hint: bantuan (selalu tampil)
+const GROUPS = [
+  { id:'g_prog', title:'Program suhu tungku', open:true, items:[
+    { type:'html', html:`<div class="sub-seg" role="radiogroup" aria-label="Sumber suhu atmosfer">
+        <label class="chk"><input type="radio" name="tsrc" value="ramp" checked> Program ramp</label>
+        <label class="chk"><input type="radio" name="tsrc" value="csv"> Log CSV controller</label></div>` },
+    { id:'prog_T0', label:'Suhu awal', unit:'°C', step:1, pdf:30, tag:'asm', pnote:'suhu ruang', ramp:true },
+    { id:'prog_rate', label:'Laju pemanasan', unit:'°C/min', step:0.1, min:0.01, pdf:2, tag:'pdf', ramp:true },
+    { id:'prog_Tset', label:'Suhu tahan (soaking)', unit:'°C', step:1, pdf:610, tag:'pdf', ramp:true },
+    { id:'prog_soak', label:'Lama tahan', unit:'min', step:5, min:0, pdf:120, tag:'asm', pnote:'isi sesuai resep uji', ramp:true },
+    { type:'check', id:'prog_coolOn', label:'Sertakan tahap pendinginan', pdf:false, ramp:true },
+    { id:'prog_coolRate', label:'Laju pendinginan', unit:'°C/min', step:0.1, min:0.01, pdf:1, ramp:true, dep:'prog_coolOn' },
+    { id:'prog_Tend', label:'Suhu akhir pendinginan', unit:'°C', step:1, pdf:200, ramp:true, dep:'prog_coolOn' },
+    { type:'html', csv:true, html:`<div style="display:grid;gap:8px">
+        <label for="csvIn" style="font-size:13px">Tempel log: <span style="font-family:var(--f-mono)">menit; T_atm; T_ukur (opsional)</span></label>
+        <textarea id="csvIn" placeholder="0;30&#10;10;50;41,2&#10;20;70;58,9…"></textarea>
+        <input id="csvFile" type="file" accept=".csv,.txt,text/csv" aria-label="Pilih berkas CSV" style="font-size:12px;max-width:100%">
+        <div class="btn-row"><button class="btn sm" id="btnCsv" type="button">Pakai log ini</button><button class="btn sm" id="btnCsvClear" type="button">Kosongkan</button></div>
+        <div class="status" id="csvStatus" role="status" aria-live="polite">Pemisah koma, titik koma, atau tab. Koma desimal didukung. Kolom ke-3 dipakai untuk kalibrasi.</div></div>` }
+  ], sum:(v)=> v.tsrc==='csv' ? (csvData ? `log CSV, ${csvData.t.length} baris` : 'log CSV belum diisi') : `${fmt(v.prog_T0,0)}→${fmt(v.prog_Tset,0)} °C · ${fmt(v.prog_rate,1)} °C/min · tahan ${fmt(v.prog_soak,0)} min` },
+
+  { id:'g_spec', title:'Spesimen baja', open:true, items:[
+    { id:'spec_th', label:'Tebal per lembar', unit:'mm', step:0.05, min:0.05, pdf:0.35, tag:'pdf', pnote:'PDF menguji 0,35 dan 0,70 mm', hintFn:(v)=>`massa ≈ ${fmt(7850*v.spec_Lx*v.spec_Ly*v.spec_th/1e6,0)} g per lembar` },
+    { id:'spec_n', label:'Jumlah lembar ditumpuk', unit:'lbr', step:1, min:1, max:20, pdf:1, tag:'asm', hint:'Lebih dari 1 untuk meniru lilitan coil.' },
+    { type:'multi', ids:['spec_Lx','spec_Ly'], label:'Lebar × panjang', unit:'mm', step:5, min:5, pdf:[80,100], tag:'pdf' },
+    { id:'spec_eps', label:'Emisivitas permukaan', step:0.01, min:0.05, max:1, pdf:0.78, tag:'pdf', pnote:'rentang PDF 0,70–0,85', hint:'Baja cerah dalam atmosfer HNx bisa 0,3–0,5.' }
+  ], sum:(v)=>`${fmt(v.spec_th,2)} mm · ${fmt(v.spec_Lx,0)}×${fmt(v.spec_Ly,0)} mm · ${fmt(v.spec_n,0)} lbr` },
+
+  { id:'g_tray', title:'Tatakan SS310', items:[
+    { type:'multi', ids:['tray_Lx','tray_Ly'], label:'Lebar × panjang', unit:'mm', step:5, min:10, pdf:[100,200], tag:'pdf' },
+    { id:'tray_Lz', label:'Tebal', unit:'mm', step:1, min:2, pdf:10, tag:'pdf', hintFn:(v)=>`massa ≈ ${fmt(8000*v.tray_Lx*v.tray_Ly*v.tray_Lz/1e9,2)} kg` },
+    { id:'tray_eps', label:'Emisivitas', step:0.01, min:0.05, max:1, pdf:0.78, tag:'pdf', pnote:'rentang PDF 0,70–0,85 (teroksidasi)' }
+  ], sum:(v)=>`${fmt(v.tray_Lx,0)}×${fmt(v.tray_Ly,0)}×${fmt(v.tray_Lz,0)} mm` },
+
+  { id:'g_furn', title:'Tungku & atmosfer', items:[
+    { type:'multi', ids:['f_W','f_H','f_D'], label:'Ruang muffle L × T × P', unit:'mm', step:5, min:20, pdf:[175,100,300], tag:'pdf' },
+    { id:'f_epsWall', label:'Emisivitas dinding', step:0.01, min:0.05, max:1, pdf:0.85, tag:'asm' },
+    { id:'f_dTwall', label:'Selisih T dinding − T termokopel', unit:'°C', step:1, pdf:0, tag:'need', tagText:'DATA #2', hint:'Positif bila dinding lebih panas daripada yang dibaca termokopel.' },
+    { id:'g_flow', label:'Debit gas', unit:'L/min', step:0.5, min:0, pdf:2, tag:'need', tagText:'DATA #3' },
+    { id:'g_xH2', label:'Kadar H₂ dalam N₂', unit:'%', step:1, min:0, max:100, pdf:5, tag:'pdf' }
+  ], sum:(v)=>`${fmt(v.f_W,0)}×${fmt(v.f_H,0)}×${fmt(v.f_D,0)} mm · ${fmt(v.g_flow,1)} L/min` },
+
+  { id:'g_sup', title:'Dudukan tatakan', items:[
+    { id:'s_view', label:'Fraksi sisi bawah terbuka', step:0.05, min:0, max:1, pdf:0.85, tag:'need', tagText:'DATA #4', hint:'1 = di atas pin, 0 = tertutup penuh.' },
+    { id:'s_floorH', label:'Kontak dengan lantai muffle', unit:'W/m²K', step:10, min:0, pdf:0, tag:'need', tagText:'DATA #4', hint:'0 bila tidak menempel lantai.' },
+    { type:'check', id:'s_shaftOn', label:'Poros hydraulic jack menembus dinding', pdf:false },
+    { id:'s_shaftD', label:'Diameter poros', unit:'mm', step:1, min:1, pdf:20, tag:'asm', dep:'s_shaftOn' },
+    { id:'s_shaftL', label:'Panjang tembus insulasi', unit:'mm', step:5, min:5, pdf:100, tag:'asm', dep:'s_shaftOn' },
+    { id:'s_shaftK', label:'Konduktivitas poros', unit:'W/mK', step:1, min:0.1, pdf:16, tag:'asm', dep:'s_shaftOn' }
+  ], sum:(v)=>`${v.s_floorH>0?'di lantai':'di atas pin'}${v.s_shaftOn?' · poros aktif':''}` },
+
+  { id:'g_cont', title:'Kontak & tekanan', items:[
+    { id:'c_gap', label:'Celah efektif lembar–tatakan', unit:'µm', step:5, min:1, pdf:50, tag:'asm', hint:'Makin rata lembarnya, makin kecil celahnya.' },
+    { id:'c_force', label:'Gaya tekan hidrolik', unit:'ton-f', step:0.1, min:0, pdf:0, tag:'need', tagText:'DATA #5', hintFn:(v)=>`tekanan kontak ≈ ${fmt(v.c_force*9806.65/(v.spec_Lx*v.spec_Ly/1e6)/1e6,2)} MPa` },
+    { id:'c_rough', label:'Kekasaran gabungan σ', unit:'µm', step:0.1, min:0.05, pdf:1.0, tag:'lit' },
+    { id:'c_H', label:'Kekerasan mikro', unit:'GPa', step:0.1, min:0.1, pdf:2.0, tag:'lit' }
+  ], sum:(v)=>`celah ${fmt(v.c_gap,0)} µm · ${fmt(v.c_force,1)} ton-f` },
+
+  { id:'g_tc', title:'Termokopel virtual', items:[
+    { type:'multi', ids:['tc_x','tc_y'], label:'Posisi x, y dari pusat', unit:'mm', step:5, pdf:[0,0], hint:'x searah lebar tatakan, y searah panjang.' },
+    { id:'tc_depth', label:'Kedalaman dari permukaan atas', unit:'mm', step:0.5, min:0, pdf:2, pnote:'saran PDF: tepat di bawah spesimen' }
+  ], sum:(v)=>`(${fmt(v.tc_x,0)}, ${fmt(v.tc_y,0)}) mm · ${fmt(v.tc_depth,1)} mm` },
+
+  { id:'g_num', title:'Pengaturan numerik', items:[
+    { type:'select', id:'props', label:'Sifat termofisika', options:[['T','Fungsi suhu'],['const','Konstan']], pdf:'T', tag:'lit' },
+    { type:'select', id:'grid', label:'Ukuran sel', options:[['5','5 mm (teliti)'],['10','10 mm (cepat)']], pdf:'5' },
+    { id:'dt', label:'Langkah waktu', unit:'s', step:1, min:0.5, max:60, pdf:5, hint:'Skema implisit: stabil pada langkah besar.' }
+  ], sum:(v)=>`sel ${v.grid} mm · Δt ${fmt(v.dt,0)} s` }
+];
+const ITEMS = GROUPS.flatMap(g => g.items.filter(i => i.id || i.ids).map(i => Object.assign(i, {group:g.id})));
+const FIELD_IDS = ITEMS.flatMap(i => i.ids || [i.id]);
+const PDF_VALUES = Object.fromEntries(ITEMS.flatMap(i => i.ids ? i.ids.map((id,k)=>[id, i.pdf[k]]) : [[i.id, i.pdf]]));
+
+function tagHtml(it){
+  if (!it.tag) return '';
+  const t = it.tagText || {pdf:'PDF', asm:'ASUMSI', lit:'LITERATUR', need:'PERLU DATA'}[it.tag];
+  return `<span class="tag ${it.tag} pdf-only" data-tagfor="${it.ids ? it.ids.join(',') : it.id}">${t}</span>`;
+}
+function numInput(id, it, label){
+  const a = [`id="${id}"`, `name="${id}"`, 'type="number"', 'inputmode="decimal"', 'autocomplete="off"', `step="${it.step ?? 'any'}"`];
+  if (it.min != null) a.push(`min="${it.min}"`); if (it.max != null) a.push(`max="${it.max}"`);
+  if (label) a.push(`aria-label="${label}"`);
+  return `<input ${a.join(' ')}>`;
+}
+function buildParams(){
+  const host = $('paramHost');
+  host.innerHTML = GROUPS.map(g => {
+    const rows = g.items.map(it => {
+      const cls = [it.ramp ? 'ramp-only' : '', it.csv ? 'csv-only' : ''].join(' ');
+      if (it.type === 'html') return `<div class="${cls}">${it.html}</div>`;
+      if (it.type === 'check') return `<label class="chk ${cls}"><input id="${it.id}" name="${it.id}" type="checkbox"> ${it.label}</label>`;
+      const notes = (it.pnote ? `<div class="note-line pdf-only" data-pnote="${it.ids ? it.ids[0] : it.id}">${it.pnote}</div>` : '')
+        + (it.hint ? `<div class="note-line">${it.hint}</div>` : '')
+        + (it.hintFn ? `<div class="note-line" data-hintfn="${it.id}"></div>` : '')
+        + `<div class="err" data-err="${it.ids ? it.ids[0] : it.id}" hidden></div>`;
+      let ctrl;
+      if (it.type === 'select') ctrl = `<select id="${it.id}" name="${it.id}">${it.options.map(o=>`<option value="${o[0]}">${o[1]}</option>`).join('')}</select>`;
+      else if (it.ids) ctrl = it.ids.map((id,k) => numInput(id, it, k ? `${it.label} (${k+1})` : null)).join('');
+      else ctrl = numInput(it.id, it);
+      const unit = it.unit ? `<em>${it.unit}</em>` : '';
+      return `<div class="f ${cls}" data-item="${it.ids ? it.ids[0] : it.id}"><label for="${it.ids ? it.ids[0] : it.id}">${it.label}${tagHtml(it)}</label><div class="inp">${ctrl}${unit}</div>${notes}</div>`;
+    }).join('');
+    return `<details class="grp" id="${g.id}"${g.open ? ' open' : ''}><summary><span>${g.title}</span><span class="sum" data-sum="${g.id}"></span></summary><div class="fields">${rows}</div></details>`;
+  }).join('');
+}
+
+// ---------- Nilai form ----------
+function getValues(){
+  const v = {};
+  for (const id of FIELD_IDS){
+    const el = $(id);
+    if (el.type === 'checkbox') v[id] = el.checked;
+    else if (el.tagName === 'SELECT') v[id] = el.value;
+    else { const x = parseFloat(String(el.value).replace(',','.')); v[id] = isFinite(x) ? x : NaN; }
+  }
+  v.tsrc = document.querySelector('input[name=tsrc]:checked').value;
+  return v;
+}
+function setValues(vals){
+  for (const id of FIELD_IDS){
+    if (!(id in vals)) continue;
+    const el = $(id);
+    if (el.type === 'checkbox') el.checked = !!vals[id]; else el.value = vals[id];
+  }
+  if (vals.tsrc) document.querySelector(`input[name=tsrc][value=${vals.tsrc}]`).checked = true;
+}
+const sameVal = (a, b) => (typeof b === 'number') ? Math.abs(Number(a) - b) < 1e-9 : String(a) === String(b);
+
+// ---------- Mode PDF / manual ----------
+let mode = 'pdf';
+function applyMode(m, {load=true}={}){
+  const prev = mode; mode = m;
+  document.body.dataset.mode = m;
+  $(m === 'pdf' ? 'mode_pdf' : 'mode_manual').checked = true;
+  if (load && m === 'pdf' && prev !== 'pdf'){ store.set('manual', getValues()); setValues(PDF_VALUES); }
+  if (load && m === 'manual' && prev !== 'manual'){ const mv = store.get('manual'); if (mv) setValues(mv); }
+  $('modeNote').innerHTML = m === 'pdf'
+    ? 'Nilai dari dokumen spesifikasi BAF simulator. Label menunjukkan asal tiap nilai dan hilang bila nilainya Anda ubah. <button class="linkbtn" id="btnReloadPdf" type="button">Muat ulang nilai PDF</button>'
+    : 'Isi semua nilai sesuai alat dan resep Anda. Nilai yang tampil hanya titik awal.';
+  if (m === 'pdf') $('btnReloadPdf').onclick = () => { setValues(PDF_VALUES); csvData = null; refreshForm(); doRun(); };
+  store.set('mode', m);
+  refreshForm();
+}
+function refreshForm(){
+  const v = getValues();
+  // label sumber: tampil hanya di mode PDF dan hanya bila nilainya masih sama dengan PDF
+  document.querySelectorAll('[data-tagfor]').forEach(t => {
+    const ids = t.dataset.tagfor.split(',');
+    t.hidden = !(mode === 'pdf' && ids.every(id => sameVal(v[id], PDF_VALUES[id])));
+  });
+  document.querySelectorAll('[data-pnote]').forEach(n => { n.hidden = !(mode === 'pdf' && sameVal(v[n.dataset.pnote], PDF_VALUES[n.dataset.pnote])); });
+  // bantuan dinamis
+  for (const it of ITEMS) if (it.hintFn){ const el = document.querySelector(`[data-hintfn="${it.id}"]`); try { el.textContent = it.hintFn(v); } catch(e){ el.textContent = ''; } }
+  // kolom yang bergantung pada kotak centang
+  for (const it of ITEMS) if (it.dep) $(it.id).disabled = !v[it.dep];
+  // ramp vs CSV
+  const csvMode = v.tsrc === 'csv';
+  document.querySelectorAll('.ramp-only').forEach(e => e.hidden = csvMode);
+  document.querySelectorAll('.csv-only').forEach(e => e.hidden = !csvMode);
+  // ringkasan grup
+  for (const g of GROUPS){ const el = document.querySelector(`[data-sum="${g.id}"]`); try { el.textContent = g.sum(v); } catch(e){ el.textContent = ''; } }
+}
+
+// ---------- Validasi ----------
+function validate(v){
+  const errs = {};
+  const need = (id, cond, msg) => { if (!cond && !errs[id]) errs[id] = msg; };
+  for (const it of ITEMS){
+    if (it.type === 'check' || it.type === 'select') continue;
+    if (it.dep && !v[it.dep]) continue;
+    if (it.ramp && v.tsrc === 'csv') continue;
+    for (const id of (it.ids || [it.id])){
+      const x = v[id], key = it.ids ? it.ids[0] : it.id;
+      if (!isFinite(x)) { need(key, false, 'Isi dengan angka.'); continue; }
+      if (it.min != null && x < it.min) need(key, false, `Minimal ${fmt(it.min, it.min<1?2:0)}${it.unit ? ' '+it.unit : ''}.`);
+      if (it.max != null && x > it.max) need(key, false, `Maksimal ${fmt(it.max, it.max<1?2:0)}${it.unit ? ' '+it.unit : ''}.`);
+    }
+  }
+  if (v.tsrc === 'ramp'){
+    need('prog_Tset', v.prog_Tset > v.prog_T0, 'Suhu tahan harus lebih tinggi dari suhu awal.');
+    need('prog_Tset', v.prog_Tset <= 1100, 'Model ini dibatasi sampai 1100 °C.');
+    if (v.prog_coolOn) need('prog_Tend', v.prog_Tend < v.prog_Tset, 'Suhu akhir harus di bawah suhu tahan.');
+  }
+  need('spec_Lx', v.spec_Lx <= v.tray_Lx && v.spec_Ly <= v.tray_Ly, 'Spesimen harus muat di atas tatakan.');
+  need('tray_Lx', v.tray_Lx <= v.f_W && v.tray_Ly <= v.f_D, 'Tatakan harus muat di dalam muffle (lebar ≤ L, panjang ≤ P).');
+  need('f_W', v.tray_Lz + v.spec_n*v.spec_th < v.f_H, 'Tinggi muffle terlalu kecil untuk tatakan dan spesimen.');
+  need('tc_x', Math.abs(v.tc_x) <= v.tray_Lx/2 && Math.abs(v.tc_y) <= v.tray_Ly/2, 'Posisi termokopel harus di dalam tatakan.');
+  need('tc_depth', v.tc_depth <= v.tray_Lz, 'Kedalaman tidak boleh melebihi tebal tatakan.');
+  return errs;
+}
+function showErrors(errs){
+  document.querySelectorAll('[data-err]').forEach(e => { e.hidden = true; e.textContent = ''; e.closest('.f').classList.remove('invalid'); });
+  const keys = Object.keys(errs).filter(k => errs[k]);
+  for (const k of keys){
+    const e = document.querySelector(`[data-err="${k}"]`); if (!e) continue;
+    e.textContent = errs[k]; e.hidden = false; e.closest('.f').classList.add('invalid');
+    e.closest('details').open = true;
+  }
+  if (keys.length){ const first = $(keys[0]); first && first.focus(); }
+  return keys.length;
+}
+
+function buildParamsObject(v){
+  const P = BAF.defaults();
+  P.program = {T0:v.prog_T0, rate:v.prog_rate, Tset:v.prog_Tset, soak:v.prog_soak, coolOn:v.prog_coolOn, coolRate:v.prog_coolRate, Tend:v.prog_Tend, csv:null};
+  if (v.tsrc === 'csv' && csvData) P.program.csv = {t:csvData.t, T:csvData.T};
+  P.spec = {Lx:v.spec_Lx/1000, Ly:v.spec_Ly/1000, th:v.spec_th/1000, nSheets:Math.round(v.spec_n), eps:v.spec_eps};
+  P.tray = {Lx:v.tray_Lx/1000, Ly:v.tray_Ly/1000, Lz:v.tray_Lz/1000, nz:5, eps:v.tray_eps};
+  P.contact = {gap_um:v.c_gap, force_tf:v.c_force, rough_um:v.c_rough, slope:0.1, H_GPa:v.c_H};
+  P.furnace = {W:v.f_W/1000, H:v.f_H/1000, D:v.f_D/1000, epsWall:v.f_epsWall, dTwall:v.f_dTwall};
+  P.gas = {flow:v.g_flow, xH2:v.g_xH2/100};
+  P.support = {bottomView:v.s_view, floorH:v.s_floorH, shaftOn:v.s_shaftOn, shaftD:v.s_shaftD, shaftL:v.s_shaftL, shaftK:v.s_shaftK, shaftTamb:30};
+  P.tc = {x:v.tc_x, y:v.tc_y, depth:v.tc_depth};
+  P.props = v.props; P.grid = parseFloat(v.grid); P.dt = v.dt;
+  P.meta = {mode, label:pinLabel(v)};
+  return BAF.prepare(P);
+}
+function pinLabel(v){
+  const p = [`${fmt(v.spec_th,2)} mm`, `ε ${fmt(v.spec_eps,2)}`];
+  if (v.spec_n > 1) p.push(`${v.spec_n} lbr`);
+  if (v.s_shaftOn) p.push('poros aktif');
+  if (v.f_dTwall) p.push(`ΔT dinding ${fmt(v.f_dTwall,0)} °C`);
+  if (v.tsrc === 'csv') p.push('log CSV');
+  else p.push(`${fmt(v.prog_rate,1)} °C/min`);
+  return p.join(', ');
+}
+
+// ---------- Menjalankan solver (Web Worker, cadangan thread utama) ----------
+let csvData = null, sim = null, band = null, pinned = null, running = false;
+let chartT = null, chartLag = null, snapIdx = 0, playTimer = null;
+const SIM_KEYS = ['nx','ny','nz','dz','dx','nsx','nsy','i0','j0','ns','th','specCol','tcI','tcJ','rec','snaps','P','stepCount','iterTotal','iterMax'];
+const WORKER_SRC = `self.onmessage=function(e){try{var s=new BAF.BafSim(e.data.P);while(!s.advance(150)){self.postMessage({type:'prog',p:s.progress()});}
+var o={};${JSON.stringify(SIM_KEYS)}.forEach(function(k){o[k]=s[k];});self.postMessage({type:'done',sim:o});}catch(err){self.postMessage({type:'err',msg:String(err&&err.message||err)});}};`;
+let workerUrl = null;
+function runSim(P, onProg){
+  try {
+    if (!workerUrl) workerUrl = URL.createObjectURL(new Blob([$('baf-solver').textContent, '\n', WORKER_SRC], {type:'text/javascript'}));
+    const w = new Worker(workerUrl);
+    return new Promise((resolve, reject) => {
+      w.onmessage = (e) => { const m = e.data;
+        if (m.type === 'prog') onProg && onProg(m.p);
+        else if (m.type === 'done'){ w.terminate(); onProg && onProg(1); resolve(m.sim); }
+        else { w.terminate(); reject(new Error(m.msg)); } };
+      w.onerror = (err) => { w.terminate(); err.preventDefault && err.preventDefault(); runSimMain(P, onProg).then(resolve, reject); };
+      w.postMessage({P});
+    });
+  } catch(e){ return runSimMain(P, onProg); }
+}
+function runSimMain(P, onProg){
+  return new Promise((resolve, reject) => {
+    let s; try { s = new BAF.BafSim(P); } catch(e){ reject(e); return; }
+    const tick = () => { try { const done = s.advance(40); onProg && onProg(s.progress()); if (done) resolve(s); else setTimeout(tick, 0); } catch(e){ reject(e); } };
+    tick();
+  });
+}
+function setStatus(t, cls){ const s = $('status'); s.textContent = t; s.className = 'status' + (cls ? ' '+cls : ''); }
+function setStale(on){
+  $('btnRun').classList.toggle('stale', on);
+  if (on && !running) setStatus('Parameter diubah. Tekan Jalankan simulasi atau Enter untuk memperbarui hasil.', 'stale');
+}
+
+async function doRun(){
+  if (running) return;
+  const v = getValues();
+  if (showErrors(validate(v))){ setStatus('Periksa kolom yang ditandai merah.', 'err'); return; }
+  if (v.tsrc === 'csv' && !csvData){ $('g_prog').open = true; setStatus('Tempel log CSV lalu tekan "Pakai log ini", atau pilih Program ramp.', 'err'); return; }
+  running = true; $('btnRun').disabled = true; band = null; setStale(false);
+  $('btnRun').textContent = 'Menghitung…';
+  const t0 = performance.now();
+  try {
+    const P = buildParamsObject(v);
+    setStatus('Menghitung…');
+    sim = await runSim(P, p => { $('prog').style.width = (p*100).toFixed(1)+'%'; });
+    setStatus(`Selesai dalam ${((performance.now()-t0)/1000).toFixed(1)} s · ${sim.stepCount} langkah waktu · ${sim.nx}×${sim.ny}×${sim.nz} sel tatakan`);
+    store.set(mode === 'manual' ? 'manual' : 'pdfEdits', v);
+    render();
+  } catch(e){ console.error(e); setStatus('Simulasi gagal: '+e.message, 'err'); }
+  running = false; $('btnRun').disabled = false; $('btnRun').textContent = 'Jalankan simulasi';
+}
+
+async function doBand(){
+  if (running || !sim) return;
+  running = true; $('btnBand').disabled = true;
+  try {
+    const v = getValues();
+    const mk = (lo) => { const P = buildParamsObject(v); P.grid = 10; P.dt = Math.max(P.dt, 10);
+      if (lo){ P.tray.eps = 0.70; P.spec.eps = 0.70; P.contact.gap_um = 150; } else { P.tray.eps = 0.85; P.spec.eps = 0.85; P.contact.gap_um = 20; }
+      return BAF.prepare(P); };
+    setStatus('Kasus batas bawah (ε 0,70; celah 150 µm)…');
+    const lo = await runSim(mk(true), p => $('prog').style.width=(p*50).toFixed(1)+'%');
+    setStatus('Kasus batas atas (ε 0,85; celah 20 µm)…');
+    const hi = await runSim(mk(false), p => $('prog').style.width=(50+p*50).toFixed(1)+'%');
+    band = {lo, hi};
+    const sl = BAF.summarize(lo), sh = BAF.summarize(hi);
+    setStatus(`Pita ketidakpastian: lag pada 300 °C antara ${fmt(sh.lag300)} dan ${fmt(sl.lag300)} °C.`);
+    renderCharts();
+  } catch(e){ console.error(e); setStatus('Gagal: '+e.message, 'err'); }
+  running = false; $('btnBand').disabled = false;
+}
+
+// ---------- Render hasil ----------
+function nearestRec(t){ let b=null,bd=1e9; for (const r of sim.rec){ const d=Math.abs(r.t-t); if (d<bd){bd=d;b=r;} } return b; }
+function render(){
+  if (!sim) return;
+  const S = BAF.summarize(sim);
+  renderVerdict(S); renderKpis(S); renderCharts();
+  const sl = $('snapSlider'); sl.max = sim.snaps.length - 1;
+  let best = 0, bl = -1;
+  sim.snaps.forEach((s,i) => { const r = nearestRec(s.t); const l = r ? r.Tatm - r.specAvg : 0; if (l > bl){ bl = l; best = i; } });
+  snapIdx = best; sl.value = best;
+  V3.builtKey = null;
+  updateSnapViews(); renderCsvOut(); renderCalib();
+}
+function renderVerdict(S){
+  const P = sim.P, th = fmt(P.spec.th*1000, 2);
+  const prog = P.program.csv ? 'log suhu yang dimasukkan' : `program ${fmt(P.program.T0,0)}→${fmt(S.Tset,0)} °C pada ${fmt(P.program.rate,1)} °C/min`;
+  const reach = S.tSpec5 != null
+    ? `mencapai ${fmt(S.Tset-5,0)} °C pada <b>menit ${fmt(S.tSpec5,0)}</b>${S.delay5!=null?` (${fmt(S.delay5,0)} min setelah atmosfer)`:''}`
+    : `<b>tidak mencapai ${fmt(S.Tset-5,0)} °C</b> selama simulasi (suhu akhir rata-rata ${fmt(sim.rec[sim.rec.length-1].specAvg,1)} °C)`;
+  const uni = S.maxSpread > 10 ? `<b>tidak seragam</b> (ΔT maks ${fmt(S.maxSpread,1)} °C)` : S.maxSpread > 5 ? `<b>agak tidak seragam</b> (ΔT maks ${fmt(S.maxSpread,1)} °C)` : `<b>seragam</b> (ΔT maks ${fmt(S.maxSpread,1)} °C)`;
+  const lag = S.lag300 != null ? `tertinggal <b>${fmt(S.lag300)} °C</b> dari atmosfer saat T<sub>atm</sub> 300 °C, ` : '';
+  $('verdict').innerHTML = `Dengan ${prog}, spesimen ${th} mm ${lag}${reach}, dan permukaannya ${uni}.`;
+}
+function renderKpis(S){
+  const k = [];
+  k.push(`<div class="kpi hl"><span class="k">Thermal lag saat T<sub>atm</sub> = 300 °C</span><span class="v">${fmt(S.lag300)}<small>°C</small></span><span class="n">${mode==='pdf' ? '<span class="pdf-only">estimasi PDF ≈ 23,0 °C</span>' : 'T<sub>atm</sub> − T<sub>spesimen</sub>'}</span></div>`);
+  k.push(`<div class="kpi"><span class="k">Lag maksimum</span><span class="v">${fmt(S.maxLag)}<small>°C</small></span><span class="n">menit ${fmt(S.maxLagAt,0)}, T<sub>atm</sub> ${fmt(S.maxLagTatm,0)} °C</span></div>`);
+  k.push(`<div class="kpi"><span class="k">Spesimen ≥ T<sub>tahan</sub> − 5 °C</span><span class="v">${fmt(S.tSpec5,0)}<small>min</small></span><span class="n">${S.delay5==null?'tidak tercapai':fmt(S.delay5,0)+' min setelah atmosfer'}</span></div>`);
+  k.push(`<div class="kpi"><span class="k">Waktu tahan efektif ±5 °C</span><span class="v">${fmt(S.soakEff,0)}<small>min</small></span><span class="n">seluruh permukaan spesimen</span></div>`);
+  const c = S.maxSpread>10?'crit':S.maxSpread>5?'warn':'ok';
+  k.push(`<div class="kpi"><span class="k">ΔT maks di permukaan spesimen</span><span class="v">${fmt(S.maxSpread,2)}<small>°C</small></span><span class="n"><span class="pill ${c}">${c==='ok'?'seragam':c==='warn'?'perlu dicek':'tidak seragam'}</span>menit ${fmt(S.maxSpreadAt,0)}</span></div>`);
+  $('kpis').innerHTML = k.join('');
+}
+
+// ---------- Grafik ----------
+function ds(label, data, color, extra){ return Object.assign({label, data, borderColor:color, backgroundColor:color, borderWidth:2, pointRadius:0, tension:0}, extra||{}); }
+const cursorPlugin = { id:'cursor', afterDatasetsDraw(c){ if(!sim||!sim.snaps[snapIdx]) return; const x = c.scales.x.getPixelForValue(sim.snaps[snapIdx].t); const a=c.chartArea; if(x<a.left||x>a.right) return; const g=c.ctx; g.save(); g.strokeStyle=css('--accent'); g.setLineDash([3,3]); g.lineWidth=1; g.beginPath(); g.moveTo(x,a.top); g.lineTo(x,a.bottom); g.stroke(); g.restore(); } };
+function baseOpts(yTitle, dec){
+  const fg = css('--muted'), grid = css('--line');
+  return { animation:false, responsive:true, maintainAspectRatio:false, parsing:false, normalized:true,
+    interaction:{mode:'index', intersect:false},
+    plugins:{ legend:{labels:{color:fg, boxWidth:14, font:{family:'IBM Plex Sans', size:12}, filter:(i)=>!i.text.startsWith('_')}},
+      tooltip:{filter:(it)=>!it.dataset.label.startsWith('_') && it.dataset.data.length>0, callbacks:{title:(it)=>'menit '+fmt(it[0].parsed.x,0), label:(it)=>`${it.dataset.label}: ${fmt(it.parsed.y,dec)} °C`}} },
+    scales:{ x:{type:'linear', title:{display:true,text:'Waktu (menit)',color:fg}, ticks:{color:fg}, grid:{color:grid}},
+             y:{title:{display:true,text:yTitle,color:fg}, ticks:{color:fg}, grid:{color:grid}} },
+    onClick:(ev, el, chart) => { const x = chart.scales.x.getValueForPixel(ev.x); setSnapByTime(x); } };
+}
+function renderCharts(){
+  if (typeof Chart === 'undefined'){ $('chT').replaceWith(Object.assign(document.createElement('p'), {className:'note', textContent:'Pustaka grafik tidak termuat; periksa koneksi internet.'})); return; }
+  const R = sim.rec, m = (f) => R.map(r => ({x:r.t, y:f(r)}));
+  const cAtm=css('--atm'), cSp=css('--steel'), cTr=css('--tray'), cAcc=css('--accent'), cFg=css('--fg');
+  const sets = [
+    ds('Atmosfer (termokopel)', m(r=>r.Tatm), cAtm, {borderDash:[6,4]}),
+    ds('Tatakan (rata-rata)', m(r=>r.trayAvg), cTr, {borderWidth:1.25}),
+    ds('_specMin', m(r=>r.specMin), 'transparent', {borderWidth:0}),
+    ds('_specMax', m(r=>r.specMax), 'transparent', {borderWidth:0, fill:'-1', backgroundColor:cSp+'40'}),
+    ds(`Spesimen ${fmt(sim.P.spec.th*1000,2)} mm (rata-rata, pita = min–maks)`, m(r=>r.specAvg), cSp, {borderWidth:2.75, order:-1}),
+    ds('Termokopel virtual', m(r=>r.tc), cAcc, {borderWidth:1.5, borderDash:[2,3]})
+  ];
+  if (pinned) sets.push(ds(`Pembanding: ${pinned.label}`, pinned.rec.map(r=>({x:r.t,y:r.specAvg})), cFg, {borderWidth:1.5, borderDash:[8,3,2,3], order:-2}));
+  if (band){
+    sets.push(ds('_bandLo', band.lo.rec.map(r=>({x:r.t,y:r.specAvg})), cSp, {borderWidth:1, borderDash:[1,3]}));
+    sets.push(ds('_bandHi', band.hi.rec.map(r=>({x:r.t,y:r.specAvg})), cSp, {borderWidth:1, borderDash:[1,3], fill:'-1', backgroundColor:cSp+'22'}));
+    sets.push(ds('Pita ketidakpastian', [], cSp+'55', {borderWidth:6}));
+  }
+  if (csvData && sim.P.program.csv && csvData.meas.some(v=>v!=null))
+    sets.push({label:'Pengukuran (T_ukur)', data:csvData.t.map((t,i)=>({x:t,y:csvData.meas[i]})).filter(p=>p.y!=null), showLine:false, pointRadius:2.5, borderColor:cFg, backgroundColor:cFg});
+  const sp = sim.P.program;
+  if (!sp.csv) sets.push(ds('Suhu tahan', [{x:0,y:sp.Tset},{x:R[R.length-1].t,y:sp.Tset}], css('--crit'), {borderWidth:1, borderDash:[2,2]}));
+  if (chartT) chartT.destroy();
+  chartT = new Chart($('chT'), {type:'line', data:{datasets:sets}, options:baseOpts('Temperatur (°C)', 1), plugins:[cursorPlugin]});
+  const lagSets = [
+    ds('Lag atmosfer − spesimen', m(r=>r.Tatm-r.specAvg), cAcc),
+    ds('ΔT tatakan (maks − min)', m(r=>r.trayMax-r.trayMin), cTr),
+    ds('ΔT spesimen (maks − min)', m(r=>r.specMax-r.specMin), cSp)
+  ];
+  if (pinned) lagSets.push(ds(`Lag pembanding: ${pinned.label}`, pinned.rec.map(r=>({x:r.t,y:r.Tatm-r.specAvg})), cFg, {borderWidth:1.25, borderDash:[8,3,2,3]}));
+  if (chartLag) chartLag.destroy();
+  chartLag = new Chart($('chLag'), {type:'line', data:{datasets:lagSets}, options:baseOpts('ΔT (°C)', 2), plugins:[cursorPlugin]});
+}
+function setSnapByTime(t){
+  if (!sim) return;
+  let b=0, bd=1e9; sim.snaps.forEach((s,i) => { const d=Math.abs(s.t-t); if (d<bd){bd=d;b=i;} });
+  snapIdx = b; $('snapSlider').value = b; updateSnapViews();
+}
+function updateSnapViews(){
+  drawHeat(); renderMech();
+  chartT && chartT.draw(); chartLag && chartLag.draw();
+  const snap = sim.snaps[snapIdx], r = nearestRec(snap.t);
+  $('snapRead').textContent = `menit ${fmt(snap.t,0)} · T_atm ${fmt(snap.Tatm,1)} °C · spesimen ${fmt(r?r.specAvg:null,1)} °C`;
+  if (activeTab === 'tab-3d') draw3D();
+}
+
+// ---------- Peta 2D ----------
+const CM = [[0,0,4],[40,11,84],[101,21,110],[159,42,99],[212,72,66],[245,125,21],[250,193,39],[252,255,164]];
+function cmap(f){ f=Math.max(0,Math.min(1,f)); const p=f*(CM.length-1), i=Math.min(CM.length-2,Math.floor(p)), u=p-i; const a=CM[i], b=CM[i+1]; return [a[0]+(b[0]-a[0])*u, a[1]+(b[1]-a[1])*u, a[2]+(b[2]-a[2])*u]; }
+function drawLegendOn(c){ const g=c.getContext('2d'); for(let x=0;x<c.width;x++){const [r,gg,b]=cmap(x/(c.width-1)); g.fillStyle=`rgb(${r|0},${gg|0},${b|0})`; g.fillRect(x,0,1,c.height);} }
+let heatGeom = null, heatScale = {lo:0, hi:1};
+function computeScale(snap){
+  const rel = document.querySelector('input[name=scale]:checked').value === 'rel';
+  let lo=Infinity, hi=-Infinity;
+  if (rel){ for (const v of snap.T){ if(v<lo)lo=v; if(v>hi)hi=v; } for (const v of snap.S){ if(v<lo)lo=v; if(v>hi)hi=v; } if (hi-lo<0.05){ const m=(hi+lo)/2; lo=m-0.025; hi=m+0.025; } }
+  else { lo = Math.min(...sim.rec.map(r=>Math.min(r.specMin, r.trayMin))); hi = Math.max(...sim.rec.map(r=>Math.max(r.Tatm, r.trayMax))); }
+  heatScale = {lo, hi, rel};
+  for (const s of ['', '3']){ $('legMin'+s).textContent = fmt(lo,1)+' °C'; $('legMax'+s).textContent = fmt(hi,1)+' °C'; }
+  $('legInfo').textContent = rel ? `rentang ${fmt(hi-lo,2)} °C` : '';
+}
+function drawHeat(){
+  const snap = sim.snaps[snapIdx]; if (!snap) return;
+  computeScale(snap);
+  const {nx,ny,nz,nsx,nsy,ns,i0,j0,dz,th} = sim, T = snap.T, S = snap.S;
+  const top = new Float32Array(nx*ny);
+  for (let j=0;j<ny;j++) for (let i=0;i<nx;i++){ const col=j*nx+i, sc=sim.specCol[col]; top[col] = sc>=0 ? S[sc*ns+ns-1] : T[col*nz+nz-1]; }
+  const {lo, hi} = heatScale, f = (v) => (v-lo)/(hi-lo);
+  const cv = $('cvPlan'), g = cv.getContext('2d'), W = cv.width, H = cv.height, pad = 34;
+  const cs = Math.min((W-2*pad)/ny, (H-2*pad)/nx), ox = (W - cs*ny)/2, oy = (H - cs*nx)/2;
+  g.fillStyle = css('--surface-2'); g.fillRect(0,0,W,H);
+  for (let j=0;j<ny;j++) for (let i=0;i<nx;i++){ const [r,gg,b]=cmap(f(top[j*nx+i])); g.fillStyle=`rgb(${r|0},${gg|0},${b|0})`; g.fillRect(ox+j*cs, oy+(nx-1-i)*cs, Math.ceil(cs), Math.ceil(cs)); }
+  g.strokeStyle = css('--fg'); g.lineWidth = 1.5; g.setLineDash([5,4]); g.strokeRect(ox+j0*cs, oy+(nx-i0-nsx)*cs, nsy*cs, nsx*cs); g.setLineDash([]);
+  g.strokeStyle = css('--muted'); g.lineWidth = 1; g.strokeRect(ox,oy,ny*cs,nx*cs);
+  g.strokeStyle = css('--accent'); g.lineWidth = 2; g.beginPath(); g.arc(ox+(sim.tcJ+0.5)*cs, oy+(nx-1-sim.tcI+0.5)*cs, 5, 0, Math.PI*2); g.stroke();
+  g.fillStyle = css('--muted'); g.font = '22px IBM Plex Mono, monospace';
+  g.fillText(`${Math.round(sim.P.tray.Ly*1000)} mm`, ox+ny*cs/2-40, H-6);
+  g.save(); g.translate(ox-10, oy+nx*cs/2+40); g.rotate(-Math.PI/2); g.fillText(`${Math.round(sim.P.tray.Lx*1000)} mm`,0,0); g.restore();
+  g.fillStyle = css('--fg'); g.fillText('spesimen', ox+j0*cs+4, oy+(nx-i0-nsx)*cs-6);
+  const ic = Math.floor(nx/2), cv2 = $('cvSec'), g2 = cv2.getContext('2d'), W2 = cv2.width, H2 = cv2.height;
+  g2.fillStyle = css('--surface-2'); g2.fillRect(0,0,W2,H2);
+  const layH = 22, sheetH = Math.max(8, 22*Math.min(1, th/dz*4)), totH = nz*layH + ns*sheetH;
+  const oy2 = (H2 - totH)/2 + ns*sheetH, ox2 = ox;
+  for (let j=0;j<ny;j++){
+    for (let k=0;k<nz;k++){ const [r,gg,b]=cmap(f(T[(j*nx+ic)*nz+k])); g2.fillStyle=`rgb(${r|0},${gg|0},${b|0})`; g2.fillRect(ox2+j*cs, oy2+(nz-1-k)*layH, Math.ceil(cs), layH); }
+    const sc = sim.specCol[j*nx+ic];
+    if (sc>=0) for (let s=0;s<ns;s++){ const [r,gg,b]=cmap(f(S[sc*ns+s])); g2.fillStyle=`rgb(${r|0},${gg|0},${b|0})`; g2.fillRect(ox2+j*cs, oy2-(s+1)*sheetH+1, Math.ceil(cs), sheetH-1); }
+  }
+  g2.strokeStyle = css('--muted'); g2.strokeRect(ox2, oy2, ny*cs, nz*layH);
+  g2.fillStyle = css('--muted'); g2.font = '22px IBM Plex Mono, monospace';
+  g2.fillText(`tatakan ${fmt(sim.P.tray.Lz*1000,0)} mm`, ox2+4, oy2+nz*layH+26);
+  g2.fillText(`${ns} lembar × ${fmt(th*1000,2)} mm`, ox2+j0*cs, oy2-ns*sheetH-6);
+  heatGeom = {ox,oy,cs,ox2,oy2,layH,sheetH,ic,top};
+}
+function hoverPlan(ev){
+  if (!sim || !heatGeom) return;
+  const c = $('cvPlan'), rect = c.getBoundingClientRect();
+  const x = (ev.clientX-rect.left)*c.width/rect.width, y = (ev.clientY-rect.top)*c.height/rect.height;
+  const j = Math.floor((x-heatGeom.ox)/heatGeom.cs), i = sim.nx-1-Math.floor((y-heatGeom.oy)/heatGeom.cs);
+  if (j<0||j>=sim.ny||i<0||i>=sim.nx){ $('hoverInfo').textContent=''; return; }
+  const snap = sim.snaps[snapIdx], col=j*sim.nx+i, sc=sim.specCol[col];
+  $('hoverInfo').textContent = `x ${fmt((i+0.5)*sim.dx*1000-sim.P.tray.Lx*500,1)} mm, y ${fmt((j+0.5)*sim.dx*1000-sim.P.tray.Ly*500,1)} mm · ${sc>=0?'spesimen':'tatakan atas'} ${fmt(heatGeom.top[col],2)} °C · tatakan bawah ${fmt(snap.T[col*sim.nz],2)} °C`;
+}
+function hoverSec(ev){
+  if (!sim || !heatGeom) return;
+  const c = $('cvSec'), rect = c.getBoundingClientRect();
+  const x = (ev.clientX-rect.left)*c.width/rect.width, y = (ev.clientY-rect.top)*c.height/rect.height;
+  const j = Math.floor((x-heatGeom.ox2)/heatGeom.cs); if (j<0||j>=sim.ny) return;
+  const snap = sim.snaps[snapIdx], col = j*sim.nx+heatGeom.ic;
+  let txt;
+  if (y >= heatGeom.oy2){ const k = sim.nz-1-Math.floor((y-heatGeom.oy2)/heatGeom.layH); if(k<0||k>=sim.nz) return; txt = `tatakan, kedalaman ${fmt((sim.nz-1-k+0.5)*sim.dz*1000,1)} mm: ${fmt(snap.T[col*sim.nz+k],2)} °C`; }
+  else { const sc=sim.specCol[col], s=Math.floor((heatGeom.oy2-y)/heatGeom.sheetH); if(sc<0||s>=sim.ns) return; txt = `lembar ke-${s+1} dari bawah: ${fmt(snap.S[sc*sim.ns+s],2)} °C`; }
+  $('hoverInfo').textContent = `y ${fmt((j+0.5)*sim.dx*1000-sim.P.tray.Ly*500,1)} mm · ${txt}`;
+}
+
+// ---------- Mekanisme ----------
+function renderMech(){
+  const snap = sim.snaps[snapIdx], r = nearestRec(snap.t), h = r && r.h;
+  $('mechT').textContent = `menit ${fmt(snap.t,0)} · T_atm ${fmt(snap.Tatm,0)} °C`;
+  if (!h){ $('mechTbl').innerHTML = '<tr><td>Belum ada data pada t = 0.</td></tr>'; return; }
+  const fb = sim.P.support.bottomView;
+  const rows = [['Atas tatakan', h.hTop, h.hRadTray], ['Bawah tatakan', h.hBot*fb, h.hRadTray*fb], ['Sisi tatakan', h.hSide, h.hRadTray], ['Atas spesimen', h.hSpec, h.hRadSpec]];
+  const cC=css('--steel'), cR=css('--accent');
+  let html = '<thead><tr><th>Permukaan</th><th class="num">h konveksi</th><th class="num">h radiasi</th><th>Porsi</th></tr></thead><tbody>';
+  for (const [n,c,rd] of rows){ const t=(c+rd)||1; html += `<tr><td>${n}</td><td class="num">${fmt(c,1)}</td><td class="num">${fmt(rd,1)}</td><td><div class="mech-bar" title="konveksi ${fmt(100*c/t,0)}%, radiasi ${fmt(100*rd/t,0)}%"><i style="width:${100*c/t}%;background:${cC}"></i><i style="width:${100*rd/t}%;background:${cR}"></i></div></td></tr>`; }
+  html += `<tr><td>Kontak spesimen–tatakan</td><td class="num" colspan="2">${fmt(h.hContact,0)}</td><td class="note">≈${fmt(h.hContact/(h.hSpec+h.hRadSpec),0)}× film atas</td></tr>`;
+  html += `<tr><td>Konveksi paksa dari debit gas</td><td class="num" colspan="2">${fmt(h.hForced,2)}</td><td></td></tr></tbody>`;
+  html += `<caption style="caption-side:bottom;text-align:left;padding-top:6px" class="note">Satuan W/m²K. Biru = konveksi, oranye = radiasi.</caption>`;
+  $('mechTbl').innerHTML = html;
+}
+
+// ---------- CSV ----------
+function parseCsv(txt){
+  const t=[], T=[], meas=[];
+  for (let line of txt.split(/\r?\n/)){
+    line = line.trim(); if (!line) continue;
+    let parts = line.includes(';') ? line.split(';') : line.includes('\t') ? line.split('\t') : line.split(',');
+    if (parts.length === 1) parts = line.split(/\s+/);
+    const vals = parts.map(p => parseFloat(p.trim().replace(',','.')));
+    if (!isFinite(vals[0]) || !isFinite(vals[1])) continue;
+    t.push(vals[0]); T.push(vals[1]); meas.push(isFinite(vals[2]) ? vals[2] : null);
+  }
+  if (t.length < 2) throw new Error('perlu minimal 2 baris berisi angka');
+  for (let i=1;i<t.length;i++) if (t[i] <= t[i-1]) throw new Error(`waktu tidak naik pada baris data ke-${i+1}`);
+  return {t, T, meas};
+}
+function csvText(){
+  const lines = ['menit;T_atm;T_tatakan_rata;T_tatakan_min;T_tatakan_maks;T_spesimen_rata;T_spesimen_min;T_spesimen_maks;T_spesimen_pusat;T_spesimen_sudut;T_termokopel_virtual'];
+  for (const r of sim.rec) lines.push([r.t,r.Tatm,r.trayAvg,r.trayMin,r.trayMax,r.specAvg,r.specMin,r.specMax,r.specCtr,r.specCorner,r.tc].map((v,i)=>i===0?v.toFixed(0):v.toFixed(2)).join(';'));
+  return lines.join('\n');
+}
+function renderCsvOut(){ $('csvOut').value = csvText(); }
+function renderCalib(){
+  const panel = $('calibPanel');
+  if (!csvData || !sim.P.program.csv || !csvData.meas.some(v=>v!=null)){ panel.hidden = true; return; }
+  panel.hidden = false;
+  const R = sim.rec; let se=0, n=0, maxE=0;
+  const tcAt = (t) => { let i=1; while (i<R.length-1 && R[i].t<t) i++; const a=R[i-1], b=R[i]; const u=(t-a.t)/((b.t-a.t)||1); return a.tc+(b.tc-a.tc)*Math.max(0,Math.min(1,u)); };
+  csvData.t.forEach((t,i) => { const m=csvData.meas[i]; if (m==null) return; const e=tcAt(t)-m; se+=e*e; n++; if (Math.abs(e)>Math.abs(maxE)) maxE=e; });
+  const ms = csvData.meas.filter(v=>v!=null), rmse = Math.sqrt(se/n), acc = 100*(1-rmse/Math.max(1, Math.max(...ms)-Math.min(...ms)));
+  const cls = acc>=98?'ok':acc>=95?'warn':'crit';
+  $('calibOut').innerHTML = `<p style="margin:0 0 6px"><span class="pill ${cls}">${acc>=98?'target >98% tercapai':'di bawah target 98%'}</span> ${n} titik ukur · RMSE <b>${fmt(rmse,2)} °C</b> · galat maks ${fmt(maxE,2)} °C · akurasi ${fmt(acc,1)}%</p><p class="note" style="margin:0">Akurasi = 1 − RMSE/rentang suhu ukur. Bila model selalu lebih panas dari pengukuran, turunkan emisivitas atau isi selisih T dinding negatif; bila lebih dingin, sebaliknya. Bila hanya awal pemanasan yang meleset, periksa suhu awal dan fraksi sisi bawah terbuka.</p>`;
+}
+
+// ---------- Tab ----------
+let activeTab = 'tab-sum';
+function showTab(id, focus){
+  activeTab = id;
+  document.querySelectorAll('[role=tab]').forEach(t => { const on = t.getAttribute('aria-controls') === id; t.setAttribute('aria-selected', on); t.tabIndex = on ? 0 : -1; if (on && focus) t.focus(); });
+  document.querySelectorAll('.tabpanel').forEach(p => p.hidden = p.id !== id);
+  $('timebar').hidden = !(id === 'tab-3d' || id === 'tab-map');
+  if (id === 'tab-sum'){ chartT && chartT.resize(); chartLag && chartLag.resize(); }
+  if (id === 'tab-3d' && sim){ if (init3D()){ size3D(); draw3D(); } }
+  if (id === 'tab-map' && sim) drawHeat();
+  flowLoop();
+  store.set('tab', id);
+}
+
+// ---------- Inisialisasi ----------
+function init(){
+  buildParams();
+  const savedMode = store.get('mode') === 'manual' ? 'manual' : 'pdf';
+  setValues(PDF_VALUES);
+  mode = 'pdf';
+  if (savedMode === 'manual'){ applyMode('manual'); } else { const ed = store.get('pdfEdits'); if (ed) setValues(ed); applyMode('pdf', {load:false}); }
+
+  document.querySelectorAll('input[name=mode]').forEach(r => r.onchange = () => { applyMode(r.value); doRun(); });
+  const aside = document.querySelector('aside.params');
+  const onEdit = (e) => {
+    if (e.target.name === 'mode' || e.target.id === 'csvIn' || e.target.id === 'csvFile') return;
+    refreshForm(); if (sim) setStale(true);
+  };
+  aside.addEventListener('input', onEdit); aside.addEventListener('change', onEdit);
+  aside.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.matches('#paramHost input:not([type=checkbox]):not([type=radio]):not([type=file]), #paramHost select')) { e.preventDefault(); doRun(); } });
+  $('btnRun').onclick = doRun;
+  $('btnBand').onclick = doBand;
+  $('btnPin').onclick = () => { if (!sim) return; pinned = {rec:sim.rec, label:sim.P.meta.label}; $('btnUnpin').hidden = false; setStatus(`Pembanding disimpan (${pinned.label}). Ubah parameter lalu jalankan lagi.`); renderCharts(); };
+  $('btnUnpin').onclick = () => { pinned = null; $('btnUnpin').hidden = true; if (sim) renderCharts(); setStatus('Pembanding dihapus.'); };
+  $('btnCsv').onclick = () => {
+    try { csvData = parseCsv($('csvIn').value);
+      $('csvStatus').textContent = `${csvData.t.length} baris, menit ${fmt(csvData.t[0],0)}–${fmt(csvData.t[csvData.t.length-1],0)}, ${csvData.meas.filter(v=>v!=null).length} titik T_ukur.`;
+      refreshForm(); doRun();
+    } catch(e){ $('csvStatus').textContent = 'Log tidak terbaca: '+e.message+'. Format tiap baris: menit;T_atm;T_ukur'; }
+  };
+  $('btnCsvClear').onclick = () => { csvData = null; $('csvIn').value = ''; $('csvStatus').textContent = 'Log dikosongkan.'; refreshForm(); };
+  $('csvFile').onchange = (e) => { const f = e.target.files[0]; if (!f) return; const rd = new FileReader(); rd.onload = () => { $('csvIn').value = rd.result; $('btnCsv').click(); }; rd.readAsText(f); };
+
+  // tab dengan keyboard (panah kiri/kanan)
+  const tabs = [...document.querySelectorAll('[role=tab]')];
+  tabs.forEach((t, i) => {
+    t.onclick = () => showTab(t.getAttribute('aria-controls'));
+    t.onkeydown = (e) => { if (e.key === 'ArrowRight' || e.key === 'ArrowLeft'){ const n = tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length-1)) % tabs.length]; showTab(n.getAttribute('aria-controls'), true); } };
+  });
+  $('snapSlider').oninput = (e) => { snapIdx = +e.target.value; updateSnapViews(); };
+  $('btnPlay').onclick = () => {
+    if (playTimer){ clearInterval(playTimer); playTimer = null; $('btnPlay').textContent = 'Putar'; return; }
+    if (!sim) return;
+    $('btnPlay').textContent = 'Jeda';
+    if (snapIdx >= sim.snaps.length-1) snapIdx = 0;
+    playTimer = setInterval(() => {
+      snapIdx++;
+      if (snapIdx >= sim.snaps.length-1){ snapIdx = sim.snaps.length-1; clearInterval(playTimer); playTimer = null; $('btnPlay').textContent = 'Putar'; }
+      $('snapSlider').value = snapIdx; updateSnapViews();
+    }, 110);
+  };
+  document.querySelectorAll('input[name=scale]').forEach(r => r.onchange = () => updateSnapViews());
+  $('cvPlan').onmousemove = hoverPlan; $('cvSec').onmousemove = hoverSec;
+  document.querySelectorAll('[data-view]').forEach(b => b.onclick = () => { if (init3D()) setView(b.dataset.view); });
+  ['v3_cut','v3_explode','v3_mult'].forEach(id => $(id).onchange = () => { V3.builtKey = null; draw3D(); });
+  $('v3_vis').onchange = () => { $('flowKey').hidden = $('v3_vis').value !== 'flow'; draw3D(); flowLoop(); };
+  $('btnCopy').onclick = async () => {
+    const ta = $('csvOut');
+    try { await navigator.clipboard.writeText(ta.value); $('btnCopy').textContent = 'Tersalin'; }
+    catch(e){ ta.focus(); ta.select(); $('btnCopy').textContent = 'Teks terpilih, tekan Ctrl+C'; }
+    setTimeout(() => $('btnCopy').textContent = 'Salin CSV', 2500);
+  };
+  // unduhan hanya ditawarkan di luar penampil artifact (mis. Streamlit atau berkas lokal)
+  const inViewer = /claude\.ai|claudeusercontent|anthropic/.test(location.hostname + ' ' + document.referrer);
+  $('btnDownload').hidden = inViewer;
+  $('btnDownload').onclick = () => {
+    const url = URL.createObjectURL(new Blob([csvText()], {type:'text/csv'}));
+    const a = Object.assign(document.createElement('a'), {href:url, download:'hasil-simulasi-baf.csv'});
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
+  };
+  const rerender = () => { V3.builtKey = null; drawLegendOn($('cvLeg')); drawLegendOn($('cvLeg3')); if (sim){ renderCharts(); updateSnapViews(); } };
+  const mq = matchMedia('(prefers-color-scheme: dark)'); mq.addEventListener && mq.addEventListener('change', rerender);
+  new MutationObserver(rerender).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
+  document.addEventListener('visibilitychange', flowLoop);
+
+  drawLegendOn($('cvLeg')); drawLegendOn($('cvLeg3'));
+  const t = store.get('tab'); if (t && $(t)) showTab(t);
+  if (typeof BAF === 'undefined') setStatus('Solver tidak termuat.', 'err'); else doRun();
+}
+
+// =====================================================================
+// Tampilan 3D: muffle, tatakan, spesimen, fluks panas (aliran partikel / panah)
+// =====================================================================
+const V3 = { ready:false, theta:-0.85, phi:0.95, dist:390, faces:[], builtKey:null };
+const SIGMA = 5.670374e-8;
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+
+function init3D(){
+  if (V3.ready) return true;
+  if (typeof THREE === 'undefined'){ $('hover3d').textContent = 'Pustaka 3D (three.js) tidak termuat; periksa koneksi internet.'; return false; }
+  const host = $('view3d');
+  if (!host.clientWidth) return false;
+  let renderer;
+  try { renderer = new THREE.WebGLRenderer({antialias:true}); }
+  catch(e){ $('hover3d').textContent = 'Browser ini tidak mendukung WebGL, tampilan 3D tidak tersedia.'; return false; }
+  renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+  host.appendChild(renderer.domElement);
+  Object.assign(V3, {renderer, scene:new THREE.Scene(), camera:new THREE.PerspectiveCamera(32, 1.6, 1, 6000), host, target:new THREE.Vector3(0,35,0), ready:true, ray:new THREE.Raycaster()});
+  const el = renderer.domElement;
+  el.style.touchAction = 'none'; el.style.display = 'block'; el.style.cursor = 'grab';
+  el.setAttribute('role', 'img'); el.setAttribute('aria-label', 'Tampilan 3D muffle, tatakan dan spesimen. Seret untuk memutar, gulir untuk zoom.');
+  let drag = null;
+  el.addEventListener('pointerdown', (e) => { drag = {x:e.clientX, y:e.clientY, t:V3.theta, p:V3.phi}; el.setPointerCapture(e.pointerId); el.style.cursor = 'grabbing'; });
+  el.addEventListener('pointermove', (e) => {
+    if (drag){ V3.theta = drag.t - (e.clientX-drag.x)*0.008; V3.phi = Math.max(0.12, Math.min(1.52, drag.p - (e.clientY-drag.y)*0.008)); render3D(); }
+    else hover3D(e);
+  });
+  const end = () => { drag = null; el.style.cursor = 'grab'; };
+  el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+  el.addEventListener('wheel', (e) => { e.preventDefault(); V3.dist = Math.max(160, Math.min(1600, V3.dist * (e.deltaY > 0 ? 1.1 : 0.9))); render3D(); }, {passive:false});
+  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(() => { size3D(); render3D(); }).observe(host);
+  size3D();
+  return true;
+}
+function size3D(){
+  if (!V3.ready) return;
+  const w = V3.host.clientWidth; if (!w) return;
+  const h = Math.round(Math.max(300, Math.min(560, w*0.58)));
+  V3.renderer.setSize(w, h); V3.camera.aspect = w/h; V3.camera.updateProjectionMatrix();
+}
+function render3D(){
+  if (!V3.ready) return;
+  const c = V3.camera, t = V3.target;
+  c.position.set(t.x + V3.dist*Math.sin(V3.phi)*Math.sin(V3.theta), t.y + V3.dist*Math.cos(V3.phi), t.z + V3.dist*Math.sin(V3.phi)*Math.cos(V3.theta));
+  c.lookAt(t);
+  V3.renderer.render(V3.scene, c);
+}
+function setView(name){
+  [V3.theta, V3.phi, V3.dist] = {iso:[-0.85,0.95,390], top:[0,0.12,470], side:[-Math.PI/2,1.42,330], front:[0,1.42,300]}[name];
+  render3D();
+}
+
+// ---------- geometri ----------
+function makeFace(cw, ch, w, h, map, getKey){
+  const cv = document.createElement('canvas'); cv.width = cw; cv.height = ch;
+  const tex = new THREE.CanvasTexture(cv);
+  tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.generateMipmaps = false;
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({map:tex}));
+  mesh.userData = {cv, tex, cw, ch, map, getKey};
+  V3.faces.push(mesh);
+  return mesh;
+}
+// balok sel i∈[ia..ib], j∈[0..ny-1], k∈[0..nz-1]; ukuran dalam mm
+function makeBlock(getKey, ia, ib, ny, nz, dxmm, dzmm){
+  const nxb = ib - ia + 1, sx = nxb*dxmm, sz = ny*dxmm, sy = nz*dzmm, g = new THREE.Group();
+  const add = (m, pos, rot) => { m.position.set(...pos); if (rot) m.rotation.set(...rot); g.add(m); };
+  add(makeFace(nxb, ny, sx, sz, (px,py)=>[ia+px, py, nz-1], getKey), [0, sy/2, 0], [-Math.PI/2,0,0]);
+  add(makeFace(nxb, ny, sx, sz, (px,py)=>[ia+px, ny-1-py, 0], getKey), [0, -sy/2, 0], [Math.PI/2,0,0]);
+  add(makeFace(ny, nz, sz, sy, (px,py)=>[ib, ny-1-px, nz-1-py], getKey), [sx/2, 0, 0], [0,Math.PI/2,0]);
+  add(makeFace(ny, nz, sz, sy, (px,py)=>[ia, px, nz-1-py], getKey), [-sx/2, 0, 0], [0,-Math.PI/2,0]);
+  add(makeFace(nxb, nz, sx, sy, (px,py)=>[ia+px, ny-1, nz-1-py], getKey), [0, 0, sz/2], null);
+  add(makeFace(nxb, nz, sx, sy, (px,py)=>[ib-px, 0, nz-1-py], getKey), [0, 0, -sz/2], [0,Math.PI,0]);
+  g.add(new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(sx, sy, sz)), new THREE.LineBasicMaterial({color:css('--fg'), transparent:true, opacity:.35})));
+  g.userData = {sx, sy, sz};
+  return g;
+}
+function textSprite(text, hMM){
+  const fs = 44, pad = 10, cv = document.createElement('canvas'), g = cv.getContext('2d');
+  const font = `500 ${fs}px IBM Plex Sans, Segoe UI, sans-serif`;
+  g.font = font; cv.width = Math.ceil(g.measureText(text).width) + pad*2; cv.height = fs + pad*2;
+  g.font = font; g.fillStyle = css('--fg'); g.textBaseline = 'middle'; g.fillText(text, pad, cv.height/2);
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(cv), transparent:true, depthTest:false}));
+  sp.scale.set(hMM*cv.width/cv.height, hMM, 1); sp.renderOrder = 10;
+  return sp;
+}
+function disposeTree(o){ o.traverse(n => { if (n.geometry) n.geometry.dispose(); if (n.material){ if (n.material.map) n.material.map.dispose(); n.material.dispose(); } }); }
+
+function build3D(){
+  if (!sim || !init3D()) return false;
+  const P = sim.P, mult = +$('v3_mult').value, cut = $('v3_cut').checked, explode = $('v3_explode').checked;
+  if (!sim.__v3id) sim.__v3id = (V3.idc = (V3.idc||0) + 1);
+  const key = [sim.__v3id, mult, cut, explode].join('|');
+  if (V3.builtKey === key) return true;
+  V3.builtKey = key;
+  const scene = V3.scene;
+  while (scene.children.length){ const c = scene.children[0]; scene.remove(c); disposeTree(c); }
+  V3.faces = [];
+  scene.background = new THREE.Color(css('--surface-2'));
+  const mm = 1000, W = P.furnace.W*mm, H = P.furnace.H*mm, D = P.furnace.D*mm;
+  const dxmm = sim.dx*mm, dzmm = sim.dz*mm, thmm = sim.th*mm*mult, Lz = P.tray.Lz*mm;
+  const onFloor = (P.support.floorH || 0) > 0;
+  const pinH = onFloor ? 0 : Math.max(3, Math.min(15, H - Lz - sim.ns*thmm - 30));
+  const muf = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(W, H, D)), new THREE.LineBasicMaterial({color:css('--muted')}));
+  muf.position.y = H/2; scene.add(muf);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(W, D), new THREE.MeshBasicMaterial({color:css('--line'), transparent:true, opacity:.55, side:THREE.DoubleSide}));
+  floor.rotation.x = -Math.PI/2; scene.add(floor);
+  const back = new THREE.Mesh(new THREE.PlaneGeometry(W, H), new THREE.MeshBasicMaterial({color:css('--line'), transparent:true, opacity:.18, side:THREE.DoubleSide}));
+  back.position.set(0, H/2, -D/2); scene.add(back);
+  const nxCut = cut ? Math.floor(sim.nx/2) : sim.nx - 1;
+  const tray = makeBlock((i,j,k)=>['T', (j*sim.nx+i)*sim.nz+k], 0, nxCut, sim.ny, sim.nz, dxmm, dzmm);
+  const trayX0 = -sim.nx*dxmm/2;
+  tray.position.set(trayX0 + tray.userData.sx/2, pinH + tray.userData.sy/2, 0); scene.add(tray);
+  const lift = explode ? 18 : 0, sIb = cut ? Math.min(sim.nsx-1, nxCut - sim.i0) : sim.nsx - 1;
+  if (sIb >= 0){
+    const spec = makeBlock((i,j,k)=>['S', (j*sim.nsx+i)*sim.ns+k], 0, sIb, sim.nsy, sim.ns, dxmm, thmm);
+    spec.position.set(trayX0 + sim.i0*dxmm + spec.userData.sx/2, pinH + Lz + lift + spec.userData.sy/2, -sim.ny*dxmm/2 + sim.j0*dxmm + spec.userData.sz/2);
+    scene.add(spec);
+  }
+  const steel = new THREE.MeshBasicMaterial({color:css('--atm')});
+  if (pinH > 0){
+    const ix = sim.nx*dxmm/2 - 10, iz = sim.ny*dxmm/2 - 12;
+    for (const [x,z] of [[-ix,-iz],[ix,-iz],[-ix,iz],[ix,iz]]){ const pin = new THREE.Mesh(new THREE.CylinderGeometry(3, 3, pinH, 12), steel); pin.position.set(x, pinH/2, z); scene.add(pin); }
+  }
+  if (P.support.shaftOn){ const r = P.support.shaftD/2, L = pinH + 45; const sh = new THREE.Mesh(new THREE.CylinderGeometry(r, r, L, 24), steel); sh.position.set(0, pinH - L/2, 0); scene.add(sh); }
+  const tc = new THREE.Mesh(new THREE.SphereGeometry(2.4, 16, 12), new THREE.MeshBasicMaterial({color:css('--accent'), depthTest:false}));
+  tc.position.set(trayX0 + (sim.tcI+0.5)*dxmm, pinH + Lz - P.tc.depth, -sim.ny*dxmm/2 + (sim.tcJ+0.5)*dxmm); tc.renderOrder = 5; scene.add(tc);
+  const lab = (t, x, y, z, h) => { const s = textSprite(t, h || 9); s.position.set(x, y, z); scene.add(s); };
+  lab(`muffle ${Math.round(W)} × ${Math.round(H)} × ${Math.round(D)} mm`, 0, H + 12, -D/2);
+  lab(`tatakan ${Math.round(P.tray.Lx*mm)} × ${Math.round(P.tray.Ly*mm)} × ${Math.round(Lz)} mm`, 0, pinH - 10, sim.ny*dxmm/2 + 22, 7.5);
+  lab(`spesimen ${Math.round(P.spec.Lx*mm)} × ${Math.round(P.spec.Ly*mm)} × ${fmt(P.spec.th*mm,2)} mm${sim.ns>1?' × '+sim.ns+' lbr':''}${mult>1?' (tebal ×'+mult+')':''}`, 0, pinH + Lz + lift + sim.ns*thmm + 14, 0, 7.5);
+  if (P.support.shaftOn) lab('poros jack', P.support.shaftD/2 + 22, -20, 0, 7);
+  V3.arrows = new THREE.Group(); scene.add(V3.arrows);
+  V3.geo = {pinH, lift, thmm, dxmm, trayX0, Lz, W, H, D, cutX: trayX0 + (nxCut+1)*dxmm, cut};
+  V3.target.set(0, Math.min(H/2, pinH + 25), 0);
+  makeFlow();
+  return true;
+}
+
+function cellValue(snap, kv){ return kv[0] === 'T' ? snap.T[kv[1]] : snap.S[kv[1]]; }
+function paint3D(snap){
+  const lo = heatScale.lo, span = (heatScale.hi - heatScale.lo) || 1;
+  for (const f of V3.faces){
+    const {cv, tex, cw, ch, map, getKey} = f.userData, g = cv.getContext('2d'), img = g.createImageData(cw, ch);
+    for (let py = 0; py < ch; py++) for (let px = 0; px < cw; px++){
+      const [i,j,k] = map(px,py), [r,gg,b] = cmap((cellValue(snap, getKey(i,j,k)) - lo)/span), o = (py*cw + px)*4;
+      img.data[o]=r; img.data[o+1]=gg; img.data[o+2]=b; img.data[o+3]=255;
+    }
+    g.putImageData(img, 0, 0); tex.needsUpdate = true;
+  }
+}
+
+// ---------- fluks panas per permukaan (W/m², positif = masuk ke benda) ----------
+function surfaceFluxes(snap){
+  const r = nearestRec(snap.t); if (!r || !r.h) return null;
+  const P = sim.P, h = r.h, nx = sim.nx, ny = sim.ny, nz = sim.nz, T = snap.T, S = snap.S;
+  let top=0, nTop=0, bot=0, side=0, nSide=0, sp=0;
+  for (let c = 0; c < nx*ny; c++){ bot += T[c*nz]; if (sim.specCol[c] < 0){ top += T[c*nz+nz-1]; nTop++; } }
+  for (let j = 0; j < ny; j++) for (let k = 0; k < nz; k++){ side += T[(j*nx)*nz+k] + T[(j*nx+nx-1)*nz+k]; nSide += 2; }
+  for (let c = 0; c < sim.nsx*sim.nsy; c++) sp += S[c*sim.ns + sim.ns - 1];
+  top = nTop ? top/nTop : bot/(nx*ny); bot /= nx*ny; side /= nSide; sp /= sim.nsx*sim.nsy;
+  const F = P.furnace, Aw = 2*(F.W*F.H + F.W*F.D + F.H*F.D), As = 2*P.tray.Lx*P.tray.Ly + 2*P.tray.Lz*(P.tray.Lx+P.tray.Ly), ratio = Math.min(1, As/Aw);
+  const Ft = 1/(1/P.tray.eps + ratio*(1/F.epsWall - 1)), Fs = 1/(1/P.spec.eps + ratio*(1/F.epsWall - 1)), Tw = r.Twall + 273.15;
+  const hr = (Ts, Fx) => { const t = Ts + 273.15; return Fx*SIGMA*(Tw*Tw + t*t)*(Tw + t); };
+  const q = (hc, Ts, Fx, f) => f*(hc*(r.Tatm - Ts) + hr(Ts, Fx)*(r.Twall - Ts));
+  const qc = (hc, Ts, f) => f*hc*(r.Tatm - Ts);
+  const fb = P.support.bottomView, As_ = P.spec.Lx*P.spec.Ly, Ab = P.tray.Lx*P.tray.Ly;
+  const out = [
+    {id:'spec', name:'Atas spesimen', q:q(h.hSpec, sp, Fs, 1), qc:qc(h.hSpec, sp, 1), A:As_, Ts:sp},
+    {id:'top', name:'Atas tatakan (terbuka)', q:q(h.hTop, top, Ft, 1), qc:qc(h.hTop, top, 1), A:Ab - As_, Ts:top},
+    {id:'side', name:'Sisi tatakan', q:q(h.hSide, side, Ft, 1), qc:qc(h.hSide, side, 1), A:2*(P.tray.Lx+P.tray.Ly)*P.tray.Lz, Ts:side},
+    {id:'bot', name:'Bawah tatakan', q:q(h.hBot, bot, Ft, fb), qc:qc(h.hBot, bot, fb), A:Ab, Ts:bot}
+  ];
+  if ((P.support.floorH||0) > 0) out.push({id:'floor', name:'Kontak lantai', q:P.support.floorH*(r.Twall - bot), qc:0, A:Ab, Ts:bot});
+  if (P.support.shaftOn){
+    const G = P.support.shaftK * Math.PI*(P.support.shaftD/1000)**2/4 / (P.support.shaftL/1000);
+    const Tc = T[((Math.floor(ny/2))*nx + Math.floor(nx/2))*nz];
+    out.push({id:'shaft', name:'Poros jack', Q:-G*(Tc - P.support.shaftTamb), Ts:Tc});
+  }
+  for (const o of out) if (o.Q === undefined) o.Q = o.q*o.A;
+  let C = 0; const SS = BAF.MAT.ss310, ST = BAF.MAT.steel, cst = P.props === 'const';
+  const Vt = sim.dx*sim.dx*sim.dz, Vs = sim.dx*sim.dx*sim.th;
+  for (const v of T) C += SS.rho*(cst ? SS.cpC : SS.cpT(v))*Vt;
+  for (const v of S) C += ST.rho*(cst ? ST.cpC : ST.cpT(v))*Vs;
+  const Qnet = out.reduce((a,o)=>a+o.Q, 0);
+  // referensi skala visual: panas yang dibutuhkan untuk mengikuti ramp program
+  const Qref = Math.max(1, C*(P.program.csv ? 2 : P.program.rate)/60);
+  return {faces:out, Qnet, rate:Qnet/C*60, Qref, C, r};
+}
+
+function fluxTable(fl){
+  if (!fl){ $('flux3d').innerHTML = '<p class="note">Fluks belum tersedia pada t = 0.</p>'; return; }
+  let html = '<table><caption style="caption-side:top;text-align:left;padding-bottom:6px;font-weight:600">Neraca panas pada waktu terpilih</caption><thead><tr><th>Permukaan</th><th class="num">T °C</th><th class="num">q W/m²</th><th class="num">Q W</th><th class="num">radiasi</th></tr></thead><tbody>';
+  for (const o of fl.faces){
+    const rad = (o.q !== undefined && Math.abs(o.q) > 1e-6) ? 100*(o.q - o.qc)/o.q : null;
+    html += `<tr><td>${o.name}</td><td class="num">${fmt(o.Ts,1)}</td><td class="num">${o.q===undefined?'–':fmt(o.q,0)}</td><td class="num" style="color:${o.Q>=0?'var(--accent)':'var(--steel)'}">${fmt(o.Q,1)}</td><td class="num">${rad==null?'–':fmt(rad,0)+'%'}</td></tr>`;
+  }
+  html += `<tr><td><b>Bersih</b></td><td></td><td></td><td class="num"><b>${fmt(fl.Qnet,1)}</b></td><td></td></tr></tbody></table>`;
+  html += `<p class="note">Neraca ini menaikkan suhu benda <b>${fmt(fl.rate,2)} °C/min</b>. Q positif = panas masuk, negatif = panas keluar.</p>`;
+  $('flux3d').innerHTML = html;
+}
+
+// ---------- panah ----------
+function arrows3D(fl){
+  const grp = V3.arrows; while (grp.children.length){ const c = grp.children[0]; grp.remove(c); disposeTree(c); }
+  if (!fl || $('v3_vis').value !== 'arrow') return;
+  const qmax = Math.max(1, ...fl.faces.filter(f=>f.q!==undefined).map(f=>Math.abs(f.q)));
+  const G = V3.geo, P = sim.P, Lx = P.tray.Lx*1000, Ly = P.tray.Ly*1000, cIn = new THREE.Color(css('--accent')), cOut = new THREE.Color(css('--steel'));
+  const put = (q, x, y, z, nx, ny, nz) => {
+    if (!isFinite(q) || Math.abs(q) < 0.02*qmax) return;
+    const len = 8 + 30*Math.abs(q)/qmax, n = new THREE.Vector3(nx, ny, nz);
+    const o = new THREE.Vector3(x,y,z).addScaledVector(n, q > 0 ? len + 1.5 : 1.5);
+    grp.add(new THREE.ArrowHelper(q > 0 ? n.clone().negate() : n, o, len, q > 0 ? cIn : cOut, Math.min(7, len*0.35), 4));
+  };
+  const f = Object.fromEntries(fl.faces.map(o=>[o.id,o])), yTop = G.pinH + G.Lz, ySpec = yTop + G.lift + sim.ns*G.thmm;
+  const sx0 = G.trayX0 + sim.i0*G.dxmm, sz0 = -Ly/2 + sim.j0*G.dxmm, sLx = sim.nsx*G.dxmm, sLy = sim.nsy*G.dxmm;
+  for (const a of [0.25,0.75]) for (const b of [0.2,0.5,0.8]){ const x = sx0 + a*sLx; if (!G.cut || x < G.cutX) put(f.spec.q, x, ySpec, sz0 + b*sLy, 0,1,0); }
+  for (const z of [-Ly/2 + 0.12*Ly, Ly/2 - 0.12*Ly]) for (const x of [-Lx/4, Lx/4]) if (!G.cut || x < G.cutX) put(f.top.q, x, yTop, z, 0,1,0);
+  for (const z of [-Ly/3, 0, Ly/3]) put(f.side.q, -Lx/2, G.pinH + G.Lz/2, z, -1,0,0);
+  put(f.side.q, -Lx/4, G.pinH + G.Lz/2, Ly/2, 0,0,1); put(f.side.q, -Lx/4, G.pinH + G.Lz/2, -Ly/2, 0,0,-1);
+  if (P.support.bottomView > 0) for (const x of [-Lx/4, Lx/4]) for (const z of [-Ly/4, Ly/4]) if (!G.cut || x < G.cutX) put(f.bot.q, x, G.pinH, z, 0,-1,0);
+  if (f.shaft) grp.add(new THREE.ArrowHelper(new THREE.Vector3(0,-1,0), new THREE.Vector3(P.support.shaftD/2 + 6, G.pinH - 4, 0), 40, cOut, 8, 5));
+}
+
+// ---------- aliran partikel ----------
+// Partikel luar: bergerak dari ruang muffle menuju permukaan (panas masuk) atau menjauh (panas keluar).
+// Partikel dalam: mengalir di dalam tatakan mengikuti −∇T (konduksi dari bagian panas ke dingin).
+const FLOW = { nOut:900, nIn:450 };
+function makeFlow(){
+  const mkPts = (n, depthTest) => {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n*3), 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(n*3), 3));
+    const pts = new THREE.Points(geo, new THREE.PointsMaterial({size:3.4, sizeAttenuation:false, vertexColors:true, transparent:true, opacity:.95, depthWrite:false, depthTest}));
+    pts.renderOrder = depthTest ? 2 : 6;
+    V3.scene.add(pts); return pts;
+  };
+  FLOW.out = mkPts(FLOW.nOut, true);
+  FLOW.inn = mkPts(FLOW.nIn, false);
+  FLOW.po = Array.from({length:FLOW.nOut}, () => ({e:-1, age:Math.random(), life:1}));
+  FLOW.pi = Array.from({length:FLOW.nIn}, () => ({x:0, z:0, age:Math.random()*2, life:2, live:false}));
+  FLOW.emitters = []; FLOW.grad = null;
+}
+function randIn(a, b){ return a + Math.random()*(b-a); }
+function setupFlow(fl, snap){
+  if (!FLOW.out) return;
+  const G = V3.geo, P = sim.P, Lx = P.tray.Lx*1000, Ly = P.tray.Ly*1000, xMax = G.cut ? G.cutX : Lx/2;
+  const yTop = G.pinH + G.Lz, ySpec = yTop + G.lift + sim.ns*G.thmm;
+  const sx0 = G.trayX0 + sim.i0*G.dxmm, sz0 = -Ly/2 + sim.j0*G.dxmm, sLx = sim.nsx*G.dxmm, sLy = sim.nsy*G.dxmm;
+  const em = [];
+  if (fl){
+    const f = Object.fromEntries(fl.faces.map(o=>[o.id,o]));
+    const add = (Q, q, sample) => { if (isFinite(Q) && Math.abs(Q) > 1e-3) em.push({Q, q, sample}); };
+    add(f.spec.Q, f.spec.q, () => { const x = randIn(sx0, Math.min(sx0+sLx, xMax)); return [x, ySpec, randIn(sz0, sz0+sLy), 0,1,0]; });
+    add(f.top.Q, f.top.q, () => { for (let t=0;t<20;t++){ const x = randIn(-Lx/2, xMax), z = randIn(-Ly/2, Ly/2); if (!(x>sx0 && x<sx0+sLx && z>sz0 && z<sz0+sLy)) return [x, yTop+0.3, z, 0,1,0]; } return [-Lx/2+2, yTop, -Ly/2+2, 0,1,0]; });
+    add(f.side.Q, f.side.q, () => { const y = randIn(G.pinH, yTop), s = Math.random()*(Lx + 2*Ly);
+      if (s < Ly) return [-Lx/2, y, randIn(-Ly/2, Ly/2), -1,0,0];
+      if (s < 2*Ly && !G.cut) return [Lx/2, y, randIn(-Ly/2, Ly/2), 1,0,0];
+      const x = randIn(-Lx/2, xMax); return Math.random() < .5 ? [x, y, Ly/2, 0,0,1] : [x, y, -Ly/2, 0,0,-1]; });
+    if (P.support.bottomView > 0) add(f.bot.Q, f.bot.q, () => [randIn(-Lx/2, xMax), G.pinH, randIn(-Ly/2, Ly/2), 0,-1,0]);
+    if (f.floor) add(f.floor.Q, f.floor.q, () => [randIn(-Lx/2, xMax), G.pinH, randIn(-Ly/2, Ly/2), 0,-1,0]);
+    if (f.shaft) add(f.shaft.Q, null, () => { const a = Math.random()*Math.PI*2, r = Math.random()*P.support.shaftD/2; return [r*Math.cos(a), G.pinH, r*Math.sin(a), 0,-1,0]; });
+  }
+  const qmax = Math.max(1, ...em.filter(e=>e.q!=null).map(e=>Math.abs(e.q)));
+  let acc = 0; const tot = em.reduce((a,e)=>a+Math.abs(e.Q),0) || 1;
+  // jumlah partikel aktif ∝ |Q| relatif terhadap panas yang dibutuhkan ramp → memudar saat tahan (soaking)
+  const active = Math.min(1, tot / (fl ? fl.Qref : 1)) * FLOW.nOut;
+  for (const e of em){ e.cum = (acc += Math.abs(e.Q)/tot); e.speed = e.q==null ? 1 : 0.35 + 0.65*Math.abs(e.q)/qmax; e.dist = e.q==null ? 55 : 34; }
+  FLOW.emitters = em; FLOW.active = Math.round(active);
+  FLOW.cIn = new THREE.Color(css('--accent')); FLOW.cOut = new THREE.Color(css('--steel')); FLOW.cCond = new THREE.Color(css('--tray'));
+  // gradien suhu bidang tengah tatakan untuk konduksi
+  const nx = sim.nx, ny = sim.ny, nz = sim.nz, km = Math.floor(nz/2), T = snap.T, gx = new Float32Array(nx*ny), gz = new Float32Array(nx*ny);
+  let gmax = 0;
+  const Tm = (i,j) => T[(j*nx+i)*nz+km];
+  for (let j=0;j<ny;j++) for (let i=0;i<nx;i++){
+    const ia = Math.max(0,i-1), ib = Math.min(nx-1,i+1), ja = Math.max(0,j-1), jb = Math.min(ny-1,j+1);
+    const a = (Tm(ib,j)-Tm(ia,j))/((ib-ia)*G.dxmm), b = (Tm(i,jb)-Tm(i,ja))/((jb-ja)*G.dxmm);
+    gx[j*nx+i] = a; gz[j*nx+i] = b; gmax = Math.max(gmax, Math.hypot(a,b));
+  }
+  FLOW.grad = {gx, gz, gmax, xMin:-Lx/2, xMax, zMin:-Ly/2, zMax:Ly/2, y:G.pinH + G.Lz/2};
+  for (const p of FLOW.po) p.e = -1;
+}
+function respawnOut(p, idx){
+  const em = FLOW.emitters;
+  if (!em.length || idx >= FLOW.active){ p.e = -1; return; }
+  const u = Math.random(); let k = em.findIndex(e => u <= e.cum); if (k < 0) k = em.length - 1;
+  const e = em[k], s = e.sample();
+  p.e = k; p.s = s; p.age = 0; p.life = (1.6 + Math.random()*0.8) / e.speed;
+}
+function respawnIn(p){
+  const g = FLOW.grad; p.x = randIn(g.xMin, g.xMax); p.z = randIn(g.zMin, g.zMax); p.age = 0; p.life = 1.5 + Math.random()*1.5;
+}
+function stepFlow(dt){
+  if (!FLOW.out) return;
+  const show = $('v3_vis').value === 'flow';
+  FLOW.out.visible = FLOW.inn.visible = show;
+  if (!show) return;
+  const pos = FLOW.out.geometry.attributes.position.array, col = FLOW.out.geometry.attributes.color.array;
+  FLOW.po.forEach((p, i) => {
+    p.age += dt;
+    if (p.e < 0 || p.age > p.life){ respawnOut(p, i); if (p.e >= 0 && dt === 0) p.age = Math.random()*p.life; }
+    const o = i*3;
+    if (p.e < 0){ pos[o]=pos[o+1]=pos[o+2]=1e5; return; }
+    const e = FLOW.emitters[p.e], s = p.s, a = Math.min(1, p.age/p.life), inward = e.Q > 0;
+    const d = e.dist * (inward ? (1 - a) : a);
+    pos[o] = s[0] + s[3]*d; pos[o+1] = s[1] + s[4]*d; pos[o+2] = s[2] + s[5]*d;
+    const c = inward ? FLOW.cIn : FLOW.cOut, fade = Math.sin(Math.PI*a);
+    col[o] = c.r*fade + (1-fade)*0.5; col[o+1] = c.g*fade + (1-fade)*0.5; col[o+2] = c.b*fade + (1-fade)*0.5;
+  });
+  FLOW.out.geometry.attributes.position.needsUpdate = true; FLOW.out.geometry.attributes.color.needsUpdate = true;
+  // konduksi di dalam tatakan
+  const g = FLOW.grad, pi = FLOW.inn.geometry.attributes.position.array, ci = FLOW.inn.geometry.attributes.color.array;
+  const live = g && g.gmax > 0.002;           // > 0,002 K/mm → ada aliran berarti
+  const nIn = live ? Math.round(FLOW.nIn * Math.min(1, g.gmax/0.05)) : 0;
+  FLOW.pi.forEach((p, i) => {
+    const o = i*3;
+    if (i >= nIn){ pi[o]=pi[o+1]=pi[o+2]=1e5; return; }
+    p.age += dt;
+    if (!p.live || p.age > p.life){ respawnIn(p); p.live = true; if (dt === 0) p.age = Math.random()*p.life; }
+    const ii = Math.min(sim.nx-1, Math.max(0, Math.floor((p.x - V3.geo.trayX0)/V3.geo.dxmm)));
+    const jj = Math.min(sim.ny-1, Math.max(0, Math.floor((p.z + sim.ny*V3.geo.dxmm/2)/V3.geo.dxmm)));
+    const vx = -g.gx[jj*sim.nx+ii], vz = -g.gz[jj*sim.nx+ii], vm = Math.hypot(vx, vz);
+    const sp = 22 * Math.sqrt(vm / g.gmax);   // mm/s
+    if (vm > 1e-9){ p.x += vx/vm*sp*dt; p.z += vz/vm*sp*dt; }
+    if (p.x < g.xMin || p.x > g.xMax || p.z < g.zMin || p.z > g.zMax || vm/g.gmax < 0.03) respawnIn(p);
+    pi[o] = p.x; pi[o+1] = g.y; pi[o+2] = p.z;
+    const fade = Math.sin(Math.PI*Math.min(1, p.age/p.life)), c = FLOW.cCond;
+    ci[o] = c.r*fade + (1-fade)*0.5; ci[o+1] = c.g*fade + (1-fade)*0.5; ci[o+2] = c.b*fade + (1-fade)*0.5;
+  });
+  FLOW.inn.geometry.attributes.position.needsUpdate = true; FLOW.inn.geometry.attributes.color.needsUpdate = true;
+}
+let flowRaf = 0, flowLast = 0;
+function flowLoop(){
+  const want = V3.ready && FLOW.out && activeTab === 'tab-3d' && $('v3_vis').value === 'flow' && !document.hidden && !reduceMotion.matches;
+  if (!want){ if (flowRaf){ cancelAnimationFrame(flowRaf); flowRaf = 0; } return; }
+  if (flowRaf) return;
+  flowLast = performance.now();
+  const tick = (now) => {
+    const dt = Math.min(0.05, (now - flowLast)/1000); flowLast = now;
+    stepFlow(dt); render3D();
+    flowRaf = requestAnimationFrame(tick);
+  };
+  flowRaf = requestAnimationFrame(tick);
+}
+
+function draw3D(){
+  if (!sim || !build3D()) return;
+  const snap = sim.snaps[snapIdx]; if (!snap) return;
+  paint3D(snap);
+  const fl = surfaceFluxes(snap);
+  arrows3D(fl); fluxTable(fl); setupFlow(fl, snap);
+  stepFlow(0);   // posisi awal acak; tetap tampil statis bila animasi dimatikan
+  $('flowKey').hidden = $('v3_vis').value !== 'flow';
+  render3D(); flowLoop();
+}
+
+function hover3D(e){
+  if (!sim || !V3.faces.length) return;
+  const rect = V3.renderer.domElement.getBoundingClientRect();
+  const m = new THREE.Vector2(((e.clientX-rect.left)/rect.width)*2 - 1, -((e.clientY-rect.top)/rect.height)*2 + 1);
+  V3.ray.setFromCamera(m, V3.camera);
+  const hit = V3.ray.intersectObjects(V3.faces, false)[0];
+  if (!hit || !hit.uv){ $('hover3d').textContent = 'Seret untuk memutar, gulir untuk zoom. Arahkan kursor ke benda untuk membaca suhu.'; return; }
+  const {cw, ch, map, getKey} = hit.object.userData;
+  const [i,j,k] = map(Math.min(cw-1, Math.floor(hit.uv.x*cw)), Math.min(ch-1, Math.floor((1-hit.uv.y)*ch)));
+  const kv = getKey(i,j,k), v = cellValue(sim.snaps[snapIdx], kv);
+  $('hover3d').textContent = `${kv[0] === 'T' ? `tatakan, sel (${i+1}, ${j+1}), lapisan ${k+1} dari bawah` : `spesimen lembar ${k+1}, sel (${i+1}, ${j+1})`}: ${fmt(v,2)} °C`;
+}
+
+init();
+})();
+</script>
